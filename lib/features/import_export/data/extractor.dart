@@ -1,103 +1,174 @@
 import 'dart:io';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+import 'package:flutter/painting.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart'
+    as ml;
+import 'package:intl/intl.dart';
 import 'package:mail_sort/core/data/slip.dart';
 import 'package:platform_ocr/platform_ocr.dart';
-import 'package:intl/intl.dart';
 
 class MobileTrackingNumberExtractor extends TrackingNumberExtractor {
   // Initialize the recognizer (Latin script covers standard numbers and English letters)
-  final TextRecognizer _textRecognizer = TextRecognizer(
-    script: TextRecognitionScript.latin,
+  final ml.TextRecognizer _textRecognizer = ml.TextRecognizer(
+    script: ml.TextRecognitionScript.latin,
   );
+  /*
+Slip slip = Slip(
+                billNum: billNum,
+                billId: billId,
+                deliveredBy: deliveredBy,
+                printedBy: printedBy,
+                deliveryDate: deliveryDate,
+                printDate: printDate,
+                remarks: remarks,
+                pageCount: pageTotal,
+              );
+*/
+  String billNum = '';
+  String billId = '';
+  String deliveredBy = '';
+  String printedBy = '';
+  DateTime deliveryDate = DateTime.now();
+  DateTime printDate = DateTime.now();
+  String remarks = '';
+  final RegExp trackingRegex = RegExp(r'\b\d{22}\b|\b\d{30}\b');
 
   Future<Slip> extractSlipInfo(File imageFile) async {
-    return Slip();
+    return Slip(
+      billNum: billNum,
+      billId: billId,
+      deliveredBy: deliveredBy,
+      printedBy: printedBy,
+      deliveryDate: deliveryDate,
+      printDate: printDate,
+      remarks: remarks,
+    );
   }
 
   /// Processes an image file and returns a list of validated tracking numbers.
   Future<List<String>> extractFromImage(File imageFile) async {
-    final inputImage = InputImage.fromFile(imageFile);
+    final File file = File(imageFile.path);
+    final Uint8List bytes = await file.readAsBytes();
 
-    final RecognizedText recognizedText = await _textRecognizer.processImage(
+    // decodeImageFromList is highly efficient and doesn't block the UI thread
+    final ui.Image decodedImage = await decodeImageFromList(bytes);
+
+    final double imageWidth = decodedImage.width.toDouble();
+    final double imageHeight = decodedImage.height.toDouble();
+    final inputImage = ml.InputImage.fromFile(imageFile);
+
+    final ml.RecognizedText recognizedText = await _textRecognizer.processImage(
       inputImage,
     );
+    // 1. Define your logical boundaries (Matching your desktop percentages)
+    final double centerAxis = imageWidth / 2;
+    final double headerBottom = imageHeight * 0.15;
+    final double footerTop = imageHeight * 0.67;
 
-    final List<String> validTrackingNumbers = [];
+    List<String> headerLines = [];
+    List<String> footerLines = [];
+    List<String> leftColumnLines = [];
+    List<String> rightColumnLines = [];
 
-    // Regex looking for boundaries containing exactly 22 or 30 digits
-    final RegExp trackingRegex = RegExp(r'\b\d{22}\b|\b\d{30}\b');
+    // 2. Loop through all text found on the page
+    for (ml.TextBlock block in recognizedText.blocks) {
+      for (ml.TextLine line in block.lines) {
+        final ui.Rect box = line.boundingBox;
 
-    // Iterate through the recognized text blocks and lines
-    for (TextBlock block in recognizedText.blocks) {
-      for (TextLine line in block.lines) {
-        // Remove spaces from the line in case the OCR split the barcode digits
-        final cleanLine = line.text.replaceAll(' ', '');
+        // Use the center of the text block to determine its true location
+        final double itemCenterX = box.center.dx;
+        final double itemCenterY = box.center.dy;
 
-        final matches = trackingRegex.allMatches(cleanLine);
-
-        final numericLine = normalizeOcrDigits(cleanLine);
-        String mergedDigits = numericLine.replaceAll(RegExp(r"\D"), "");
-        bool foundNumeric = false;
-
-        // ==========================================
-        // PASS 1: USPS NUMERIC TRACKING (Right-To-Left)
-        // ==========================================
-        int i = mergedDigits.length - 22;
-        final RegExp prefix = RegExp(r'^(420|427)\d{5}$');
-        while (i >= 0) {
-          String coreTracking = mergedDigits.substring(i, 22);
-
-          if (_isValidModulo10(coreTracking)) {
-            foundNumeric = true;
-
-            // ALWAYS store just the 22-digit core tracking number
-            validTrackingNumbers.add(coreTracking);
-            // Check if an 8-digit routing prefix exists before our core tracking number
-            if (i >= 8 && prefix.hasMatch(mergedDigits.substring(i - 8, 8))) {
-              // Prefix found: Jump past the full 30-digit block so we don't scan the zip code
-              i -= 30;
-            } else {
-              // No prefix
-              i -= 22;
-            }
+        // 3. Sort into buckets based on Y and X coordinates
+        if (itemCenterY < headerBottom) {
+          headerLines.add(line.text);
+        } else if (itemCenterY > footerTop) {
+          footerLines.add(line.text);
+        } else {
+          // It's in the body, so split by left/right column
+          if (itemCenterX < centerAxis) {
+            leftColumnLines.add(line.text);
           } else {
-            i--; // No match
-          }
-
-          // ==========================================
-          // PASS 2: ALPHANUMERIC TRACKING (UPS / eVS)
-          // ==========================================
-          if (!foundNumeric) {
-            final tokenizedString = numericLine.replaceAll(
-              RegExp(r'[^a-zA-Z0-9]'),
-              ' ',
-            );
-            final words = tokenizedString.split(' ');
-
-            for (final word in words) {
-              if (word.length >= 10 &&
-                  RegExp(r'^[A-Z0-9]+$').hasMatch(word) &&
-                  RegExp(r'[A-Z]').hasMatch(word) &&
-                  RegExp(r'[0-9]').hasMatch(word) &&
-                  word != 'NC') {
-                validTrackingNumbers.add(word);
-              }
-            }
-          }
-        }
-        for (final match in matches) {
-          final String? possibleNumber = match.group(0);
-
-          if (possibleNumber != null && _isValidModulo10(possibleNumber)) {
-            // Avoid adding duplicates if the same number is read twice on a label
-            if (!validTrackingNumbers.contains(possibleNumber)) {
-              validTrackingNumbers.add(possibleNumber);
-            }
+            rightColumnLines.add(line.text);
           }
         }
       }
     }
 
+    _textRecognizer.close();
+
+    // Now you can run your Regex on headerText/footerText
+    // and run your (NC) anchor loop on leftColumnLines and rightColumnLines
+    List<String> validTrackingNumbers = [];
+    List<String> allLines = [...leftColumnLines, ...rightColumnLines];
+
+    for (String line in headerLines) {
+      if (line.contains('Bill Number:')) {
+        billNum = line.split('Bill Number:').last.trim();
+      } else if (line.contains('Bill ID:')) {
+        billId = line.split('Bill ID:').last.trim();
+      }
+    }
+    for (String line in footerLines) {
+      if (line.contains('Delivered By:')) {
+        deliveredBy = line.split('Delivered By:').last.trim();
+      } else if (line.contains('Printed By:')) {
+        printedBy = line.split('Printed By:').last.trim();
+      } else if (line.contains('Delivery Date:')) {
+        final dateString = line.split('Delivery Date:').last.trim();
+        final DateFormat expectedFormat = DateFormat('MM/dd/yyyy HH:mm ZZZZZ');
+        try {
+          // Attempt to parse the string using the specific format
+          deliveryDate = expectedFormat.parse(dateString);
+        } catch (e) {
+          // Fallback to now() if the OCR string is mangled or doesn't match
+          deliveryDate = DateTime.now();
+        }
+      } else if (line.contains('Print Date:')) {
+        final dateString = line.split('Print Date:').last.trim();
+        final DateFormat expectedFormat = DateFormat('MM/dd/yyyy HH:mm ZZZZZ');
+        try {
+          // Attempt to parse the string using the specific format
+          printDate = expectedFormat.parse(dateString);
+        } catch (e) {
+          // Fallback to now() if the OCR string is mangled or doesn't match
+          printDate = DateTime.now();
+        }
+      } else if (line.contains('Remarks:')) {
+        remarks = line.split('Remarks:').last.trim();
+      }
+    }
+    for (String line in allLines) {
+      if (line.contains('(NC)')) {
+        String sanitized = line.replaceAll(' ', '').replaceAll('(NC)', '');
+        if (sanitized.contains('USORD')) {
+          final startIndex = sanitized.indexOf('USORD');
+          validTrackingNumbers.add(sanitized.substring(startIndex));
+          continue;
+        }
+        sanitized = normalizeOcrDigits(sanitized);
+        String digitsOnly = sanitized.replaceAll(RegExp(r'\D'), '');
+
+        // 3. Handle the 420/427 postal routing prefix if present
+        final RegExp prefix = RegExp(r'^(420|427)\d{5}');
+        String coreTracking = digitsOnly;
+        if (prefix.hasMatch(digitsOnly)) {
+          coreTracking = digitsOnly.substring(8);
+        }
+
+        while (coreTracking.length >= 15) {
+          if (trackingRegex.hasMatch(coreTracking)) {
+            if (_isValidModulo10(coreTracking)) {
+              validTrackingNumbers.add(coreTracking);
+              break;
+            }
+          }
+          // Drop the first character and check again on the next loop
+          coreTracking = coreTracking.substring(1);
+        }
+      }
+    }
     return validTrackingNumbers;
   }
 
@@ -107,83 +178,17 @@ class MobileTrackingNumberExtractor extends TrackingNumberExtractor {
 }
 
 class DesktopTrackingNumberExtractor extends TrackingNumberExtractor {
-  Future<Slip> extractSlipInfo(File imageFile) async {
+  Future<String> extractText(File imageFile) async {
     final ocr = PlatformOcr();
     if (!await imageFile.exists()) {
-      return Slip();
+      return "";
     }
-
-    DateFormat inputFormat = DateFormat("MM/dd/yyyy HH:mm Z");
-
     final result = await ocr.recognizeText(OcrSource.file(imageFile));
-    bool deliveryNext = false;
-    bool remarkNext = false;
-    bool deliveredNext = false;
-
-    String billNum = '';
-    String billId = '';
-    String deliveredBy = '';
-    String printedBy = '';
-    DateTime? deliveryDate = DateTime.now();
-    String remarks = '';
-    DateTime? printDate = DateTime.now();
-
-    for (final line in result.lines) {
-      if (deliveryNext) {
-        //We are looking for date of delivery/remarks/and delivered by info
-        //save line.text, but in the right spot.
-        inputFormat = DateFormat("MM/dd/yy HH:mm");
-        deliveryDate = inputFormat.tryParse(line.text);
-        deliveryNext = false;
-      }
-      if (remarkNext) {
-        remarks = line.text;
-        remarkNext = false;
-      }
-      if (deliveredNext) {
-        deliveredBy = line.text;
-        deliveredNext = false;
-      }
-      if (line.text.toLowerCase().contains("date of")) {
-        deliveryNext = true;
-        continue;
-      }
-      if (line.text.toLowerCase().contains("remark")) {
-        remarkNext = true;
-        continue;
-      }
-      if (line.text.toLowerCase().contains("delivered")) {
-        deliveredNext = true;
-      }
-      if (line.text.toLowerCase().contains('bill id')) {
-        billId = line.text.split(':')[1];
-      }
-      if (line.text.toLowerCase().contains('bill num')) {
-        billNum = line.text.split(':')[1];
-      }
-      if (line.text.toLowerCase().contains('printed b')) {
-        printedBy = line.text.split(':')[1];
-      }
-      if (line.text.toLowerCase().contains('printed on')) {
-        printDate = inputFormat.tryParse(
-          line.text.split(':')[1].replaceAll(' ', ''),
-        );
-      }
-    }
-
-    return Slip(
-      billNum: billNum,
-      billId: billId,
-      deliveredBy: deliveredBy,
-      printedBy: printedBy,
-      printDate: printDate,
-      deliveryDate: deliveryDate,
-      remarks: remarks,
-    );
+    return result.text;
   }
 
   /// Processes an image file and returns a list of validated tracking numbers.
-  Future<List<String>> extractFromImage(File imageFile) async {
+  Future<List<String>> extractTrackingNumbersFromImage(File imageFile) async {
     final ocr = PlatformOcr();
     if (!await imageFile.exists()) {
       return [];
@@ -195,87 +200,38 @@ class DesktopTrackingNumberExtractor extends TrackingNumberExtractor {
     // Regex looking for boundaries containing exactly 22 or 30 digits
     final RegExp trackingRegex = RegExp(r'\b\d{22}\b|\b\d{30}\b');
     for (final line in result.lines) {
-      if (line.text.contains("ACCOUNTABLE MAIL") ||
-          line.text.contains("OUTGOING MANIFEST") ||
-          line.text.contains("Page Number") ||
-          line.text.contains("Origin") ||
-          line.text.contains("Automated") ||
-          line.text.contains("ACCOUNTABLE") ||
-          line.text.contains("Mail for: KFAB") ||
-          line.text.contains("Item Number") ||
-          line.text.contains("A total of") ||
-          line.text.contains("were received") ||
-          line.text.contains("Bill Type") ||
-          line.text.contains("Received By") ||
-          line.text.contains("nature of Addressee") ||
-          line.text.contains("Delivery Office")) {
-        continue;
-      }
-      // Remove spaces from the line in case the OCR split the barcode digits
-      final cleanLine = line.text.replaceAll(' ', '');
-      final matches = trackingRegex.allMatches(cleanLine);
+      if (line.text.contains('(NC)')) {
+        String sanitized = line.text.replaceAll(' ', '').replaceAll('(NC)', '');
 
-      //final numericLine = normalizeOcrDigits(cleanLine);
-      String mergedDigits = cleanLine.replaceAll(RegExp(r"\D"), "");
-      bool foundNumeric = false;
-
-      // ==========================================
-      // PASS 1: USPS NUMERIC TRACKING
-      // ==========================================
-      final RegExp prefix = RegExp(r'^(420|427)\d{5}');
-      String coreTracking;
-      //print(mergedDigits);
-      if (prefix.hasMatch(mergedDigits)) {
-        coreTracking = mergedDigits.substring(8);
-      } else {
-        coreTracking = mergedDigits;
-      }
-
-      if (coreTracking.length == 22 && _isValidModulo10(coreTracking)) {
-        foundNumeric = true;
-        validTrackingNumbers.add(coreTracking);
-        continue;
-      }
-
-      // ==========================================
-      // PASS 2: ALPHANUMERIC TRACKING (UPS / eVS)
-      // ==========================================
-      if (!foundNumeric) {
-        final tokenizedString = cleanLine.replaceAll(
-          RegExp(r'[^a-zA-Z0-9]'),
-          ' ',
-        );
-        final words = tokenizedString.split(' ');
-        final RegExp ups1ZRegex = RegExp(
-          r'^1Z[0-9A-Z]{15}\d$',
-          caseSensitive: false,
-        );
-        for (final word in words) {
-          if (word.length == 18 && ups1ZRegex.hasMatch(word)) {
-            //yep, definitely a UPS tracking number
-          } else if (word.length >= 10 &&
-              RegExp(r'^[A-Z0-9]+$').hasMatch(word) &&
-              RegExp(r'[A-Z]').hasMatch(word) &&
-              RegExp(r'[0-9]').hasMatch(word) &&
-              word != 'NC') {
-            foundNumeric = true;
-            validTrackingNumbers.add(word);
-          }
+        // 1. Handle alphanumeric edge cases FIRST (e.g., USORD)
+        if (sanitized.contains('USORD')) {
+          final startIndex = sanitized.indexOf('USORD');
+          validTrackingNumbers.add(sanitized.substring(startIndex));
+          continue;
         }
-      }
 
-      for (final match in matches) {
-        final String? possibleNumber = match.group(0);
+        sanitized = normalizeOcrDigits(sanitized);
+        String digitsOnly = sanitized.replaceAll(RegExp(r'\D'), '');
 
-        if (possibleNumber != null && _isValidModulo10(possibleNumber)) {
-          // Avoid adding duplicates if the same number is read twice on a label
-          if (!validTrackingNumbers.contains(possibleNumber)) {
-            validTrackingNumbers.add(possibleNumber);
+        // 3. Handle the 420/427 postal routing prefix if present
+        final RegExp prefix = RegExp(r'^(420|427)\d{5}');
+        String coreTracking = digitsOnly;
+        if (prefix.hasMatch(digitsOnly)) {
+          coreTracking = digitsOnly.substring(8);
+        }
+
+        while (coreTracking.length >= 15) {
+          if (trackingRegex.hasMatch(coreTracking)) {
+            if (_isValidModulo10(coreTracking)) {
+              validTrackingNumbers.add(coreTracking);
+              break;
+            }
           }
+          // Drop the first character and check again on the next loop
+          coreTracking = coreTracking.substring(1);
         }
       }
     }
-
     return validTrackingNumbers;
   }
 }
@@ -312,7 +268,6 @@ class TrackingNumberExtractor {
 
   String normalizeOcrDigits(String input) {
     // Replace common OCR character misreads with their numeric equivalents.
-    // You can add or remove these based on the specific quirks of your printed documents.
     return input
         .replaceAll("O", "0")
         .replaceAll("o", "0")

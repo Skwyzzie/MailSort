@@ -19,40 +19,37 @@ class SlipAdapter extends TypeAdapter<Slip> {
     return Slip(
       billNum: fields[0] as String?,
       billId: fields[1] as String?,
-      pageNum: fields[2] as int?,
-      pageCount: fields[3] as int?,
-      deliveredBy: fields[4] as String?,
-      printedBy: fields[5] as String?,
-      deliveryDate: fields[6] as DateTime?,
-      remarks: fields[7] as String?,
-      printDate: fields[8] as DateTime?,
-      packageCount: fields[9] as int?,
+      pageCount: fields[2] as int?,
+      deliveredBy: fields[3] as String?,
+      printedBy: fields[4] as String?,
+      deliveryDate: fields[5] as DateTime?,
+      remarks: fields[6] as String?,
+      printDate: fields[7] as DateTime?,
+      packageCount: fields[8] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Slip obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.billNum)
       ..writeByte(1)
       ..write(obj.billId)
       ..writeByte(2)
-      ..write(obj.pageNum)
-      ..writeByte(3)
       ..write(obj.pageCount)
-      ..writeByte(4)
+      ..writeByte(3)
       ..write(obj.deliveredBy)
-      ..writeByte(5)
+      ..writeByte(4)
       ..write(obj.printedBy)
-      ..writeByte(6)
+      ..writeByte(5)
       ..write(obj.deliveryDate)
-      ..writeByte(7)
+      ..writeByte(6)
       ..write(obj.remarks)
-      ..writeByte(8)
+      ..writeByte(7)
       ..write(obj.printDate)
-      ..writeByte(9)
+      ..writeByte(8)
       ..write(obj.packageCount);
   }
 

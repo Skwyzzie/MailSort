@@ -13,7 +13,7 @@ class Package extends HiveObject {
   String? slipNum;
 
   @HiveField(2)
-  bool isAF = false;
+  String packageType = '';
 
   @HiveField(3)
   DateTime timeImported;
@@ -30,10 +30,18 @@ class Package extends HiveObject {
   Package({
     required this.trackingNum,
     required this.slipNum,
-    required this.isAF,
+    required this.packageType,
     required this.timeImported,
     this.lastUpdated,
     required this.isScanned,
     required this.file,
   });
+  Map<String, dynamic> toJson() => {
+    'trackingNum': trackingNum,
+    'slipNum': slipNum,
+    'branch': packageType,
+    'bScanned': isScanned,
+    'timeImported': timeImported.toString(),
+    'lastUpdated': lastUpdated.toString(),
+  };
 }

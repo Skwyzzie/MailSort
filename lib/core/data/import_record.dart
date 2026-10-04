@@ -23,4 +23,11 @@ class ImportRecord extends HiveObject {
     required this.fileSize,
     required this.timeImported,
   });
+
+  Map<String, dynamic> toJson() => {
+    'fileName': fileName,
+    'filePath': filePath,
+    'fileSize': fileSize,
+    'timeImported': timeImported.toString(),
+  };
 }

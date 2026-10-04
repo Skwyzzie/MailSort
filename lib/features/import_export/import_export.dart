@@ -21,14 +21,12 @@ class _ImportExportPageState extends State<ImportExportPage> {
   final List<ImportRecord> _files = <ImportRecord>[];
 
   late Box<Package> _packageBox;
-  //late Box<Scan> _scanBox;
   late Box<ImportRecord> _importBox;
 
   @override
   void initState() {
     super.initState();
     _packageBox = Hive.box<Package>('packageBox');
-    //_scanBox = Hive.box<Scan>('scanBox');
     _importBox = Hive.box<ImportRecord>('importBox');
   }
 
@@ -57,7 +55,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'Importing PDF Slips',
+                    'Importing PDF Bills',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   const SizedBox(height: 16),
@@ -107,7 +105,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
         statusNotifier.value = status;
       },
       onFilePicked: (PlatformFile file) async {
-        // Wait for the new async length method to return the size
         final int size = await file.length();
         final kb = size / 1024;
         String sizeString = (kb > 1024)
@@ -124,18 +121,16 @@ class _ImportExportPageState extends State<ImportExportPage> {
             .cast<ImportRecord?>()
             .firstWhere((p) => p?.filePath == file.path, orElse: () => null);
 
-        if (matchedImport == null) {
-          _importBox.add(pdf);
-        } else {}
-
         setState(() {
-          _files.insert(0, pdf);
+          if (matchedImport == null) {
+            _importBox.add(pdf);
+            _files.insert(0, pdf);
+          }
         });
         return pdf;
       },
     );
 
-    // 3. Close the dialog
     if (context.mounted) {
       Navigator.of(context, rootNavigator: true).pop();
 
@@ -147,30 +142,59 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 'Successfully imported $importedCount new packages.',
               ),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Import cancelled or no tracking numbers found.'),
+              content: Text(
+                'Import cancelled or no tracking numbers found.',
+                style: TextStyle(color: Colors.black),
+              ),
               backgroundColor: Colors.yellow,
+              duration: Duration(seconds: 3),
             ),
           );
         }
       }
     }
-    //update the pdf files list
   }
 
-  Future<void> _exportPdf(ImportRecord file) async {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('Exporting ${file.fileName}…')));
+  Future<void> _exportPdf() async {
+    //final fileName = DateTime.now().toIso8601String().replaceAll(':', '-');
+
+    if (_packageBox.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No packages found. Aborting PDF generation.',
+            style: TextStyle(color: Colors.black),
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // call the exporter
+    //TODO: call pdf export here as well, since this is the page where we manage PDFs
+    // not sure how I want to do that yet, but the button in the header of the scan page will work for now
   }
 
   void _removePdf(ImportRecord file) {
-    setState(() => _files.remove(file));
-    //_packageBox.get
+    setState(() {
+      _files.remove(file);
+      file.delete();
+    });
+    String billNum = file.fileName.substring(0, file.fileName.length - 4);
+    final keysToDelete = _packageBox
+        .toMap()
+        .entries
+        .where((entry) => entry.value.slipNum == billNum)
+        .map((entry) => entry.key)
+        .toList();
+    _packageBox.deleteAll(keysToDelete);
   }
 
   @override
@@ -200,7 +224,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                     final file = _files[index];
                     return _PdfTile(
                       file: file,
-                      onExport: () => _exportPdf(file),
+                      onExport: () => _exportPdf(),
                       onDelete: () => _removePdf(file),
                     );
                   },

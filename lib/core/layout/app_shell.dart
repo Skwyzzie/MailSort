@@ -24,18 +24,29 @@ class MailSortShell extends StatefulWidget {
 
 class _MailSortShellState extends State<MailSortShell> {
   late Box<Package> _packageBox;
+  late Box _settingsBox;
 
   @override
   void initState() {
     super.initState();
     _packageBox = Hive.box<Package>('packageBox');
+    _settingsBox = Hive.box('settingsBox');
   }
 
   void _onGlobalBarcodeScanned(String barcode) {
-    if (barcode.length < 10) {
+    if (!isValidTrackingNumber(barcode)) {
+      _showSnackbar('Invalid tracking number scanned: $barcode');
       return;
     }
-    String trackingNum = barcode.substring(8);
+
+    String trackingNum = '';
+    if (barcode.startsWith('420')) {
+      trackingNum = barcode.substring(8);
+    } else {
+      trackingNum = barcode;
+    }
+
+    var packageType = _settingsBox.get('packageBranch', defaultValue: 'Army');
 
     final matchedPackage = _packageBox.values.cast<Package?>().firstWhere(
       (p) => p?.trackingNum == trackingNum,
@@ -45,6 +56,9 @@ class _MailSortShellState extends State<MailSortShell> {
     if (matchedPackage != null) {
       matchedPackage.isScanned = true;
       matchedPackage.lastUpdated = DateTime.now();
+      if (matchedPackage.packageType != packageType) {
+        matchedPackage.packageType = packageType;
+      }
       matchedPackage.save();
       _showSnackbar('Matched & updated pending package: $trackingNum');
     } else {
@@ -52,7 +66,7 @@ class _MailSortShellState extends State<MailSortShell> {
         Package(
           trackingNum: trackingNum,
           slipNum: '0',
-          isAF: false,
+          packageType: packageType,
           timeImported: DateTime.now(),
           lastUpdated: DateTime.now(),
           isScanned: true,
@@ -66,7 +80,7 @@ class _MailSortShellState extends State<MailSortShell> {
   // Helper method using the global key
   void _showSnackbar(String message) {
     rootScaffoldMessengerKey.currentState?.showSnackBar(
-      SnackBar(content: Text(message)),
+      SnackBar(content: Text(message), duration: Duration(seconds: 1)),
     );
   }
 
@@ -99,6 +113,10 @@ class _MailSortShellState extends State<MailSortShell> {
                     icon: Icon(Icons.picture_as_pdf),
                     label: 'PDFs',
                   ),
+                  NavigationDestination(
+                    icon: Icon(Icons.settings),
+                    label: 'Settings',
+                  ),
                 ],
               ),
             );
@@ -130,6 +148,10 @@ class _MailSortShellState extends State<MailSortShell> {
                       icon: Icon(Icons.picture_as_pdf),
                       label: Text('Manage PDFs'),
                     ),
+                    NavigationRailDestination(
+                      icon: Icon(Icons.settings),
+                      label: Text('Settings'),
+                    ),
                   ],
                 ),
                 const VerticalDivider(thickness: 1, width: 1),
@@ -140,5 +162,38 @@ class _MailSortShellState extends State<MailSortShell> {
         },
       ),
     );
+  }
+
+  bool isValidTrackingNumber(String scannedCode) {
+    // Reject Unrepresentable/Control Characters (Corrupted 2D Scans & Fragments)
+    // Rejects any string containing characters outside standard printable ASCII (e.g., ½, \uFFFD)
+    if (scannedCode.contains(RegExp(r'[^\x20-\x7E]'))) {
+      return false;
+    }
+
+    // Reject Short Routing Tags
+    // Standard USPS/UPS/FedEx tracking numbers are > 10 characters.
+    if (scannedCode.length <= 9) {
+      return false;
+    }
+
+    // Reject Amazon FNSKU Inventory Labels
+    // Amazon FNSKUs always start with 'X00' followed by exactly 7 alphanumeric characters.
+    if (RegExp(
+      r'^X00[A-Z0-9]{7}$',
+      caseSensitive: false,
+    ).hasMatch(scannedCode)) {
+      return false;
+    }
+
+    // Reject Amazon Logistics (AMZL) Internal Codes
+    // Matches anything starting with 'SP' followed by alphanumeric characters or underscores.
+    if (RegExp(r'^SP[A-Z0-9_]+$', caseSensitive: false).hasMatch(scannedCode)) {
+      return false;
+    }
+
+    // If it passes all blacklist checks, it is a clean string.
+    // Return true, or pass it directly into your existing Modulo 10 validator here.
+    return true;
   }
 }

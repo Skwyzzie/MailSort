@@ -5,6 +5,7 @@ import 'package:mail_sort/core/layout/app_shell.dart';
 import 'package:mail_sort/features/dashboard/dashboard.dart';
 import 'package:mail_sort/features/scanner/scanner.dart';
 import 'package:mail_sort/features/import_export/import_export.dart';
+import 'package:mail_sort/core/layout/settings.dart';
 
 final appRouter = GoRouter(
   initialLocation: '/dashboard',
@@ -15,6 +16,7 @@ final appRouter = GoRouter(
         int getSelectedIndex(String location) {
           if (location.startsWith('/scanner')) return 1;
           if (location.startsWith('/pdf')) return 2;
+          if (location.startsWith('/settings')) return 3;
           return 0; // Default to dashboard
         }
 
@@ -29,6 +31,9 @@ final appRouter = GoRouter(
               break;
             case 2:
               context.go('/pdf');
+              break;
+            case 3:
+              context.go('/settings');
               break;
           }
         }
@@ -47,6 +52,7 @@ final appRouter = GoRouter(
         ),
         GoRoute(path: '/scanner', builder: (context, state) => ScannerPage()),
         GoRoute(path: '/pdf', builder: (context, state) => ImportExportPage()),
+        GoRoute(path: '/settings', builder: (context, state) => SettingsPage()),
       ],
     ),
   ],

@@ -19,8 +19,9 @@ class PackageAdapter extends TypeAdapter<Package> {
     return Package(
       trackingNum: fields[0] as String,
       slipNum: fields[1] as String?,
-      isAF: fields[2] as bool,
+      packageType: fields[2] as String,
       timeImported: fields[3] as DateTime,
+      lastUpdated: fields[6] as DateTime?,
       isScanned: fields[4] as bool,
       file: fields[5] as ImportRecord?,
     );
@@ -29,19 +30,21 @@ class PackageAdapter extends TypeAdapter<Package> {
   @override
   void write(BinaryWriter writer, Package obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.trackingNum)
       ..writeByte(1)
       ..write(obj.slipNum)
       ..writeByte(2)
-      ..write(obj.isAF)
+      ..write(obj.packageType)
       ..writeByte(3)
       ..write(obj.timeImported)
       ..writeByte(4)
       ..write(obj.isScanned)
       ..writeByte(5)
-      ..write(obj.file);
+      ..write(obj.file)
+      ..writeByte(6)
+      ..write(obj.lastUpdated);
   }
 
   @override

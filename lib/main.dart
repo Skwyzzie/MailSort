@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/data/import_record.dart';
 import 'core/data/package.dart';
-import 'core/data/scan.dart';
 import 'core/data/slip.dart';
 import 'core/layout/app_shell.dart';
 
@@ -12,17 +11,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   Hive.registerAdapter(PackageAdapter());
-  Hive.registerAdapter(ScanAdapter());
   Hive.registerAdapter(SlipAdapter());
   Hive.registerAdapter(ImportRecordAdapter());
-  /* DEBUG: IN CASE OF DATA MODIFICATION
-  await Hive.deleteBoxFromDisk('packageBox');
-  await Hive.deleteBoxFromDisk('scanBox');
-  await Hive.deleteBoxFromDisk('slipBox');
-  await Hive.deleteBoxFromDisk('importBox');
-  // */
+
   await Hive.openBox<Package>('packageBox');
-  await Hive.openBox<Scan>('scanBox');
   await Hive.openBox<Slip>('slipBox');
   await Hive.openBox<ImportRecord>('importBox');
   await Hive.openBox('settingsBox');
@@ -35,10 +27,7 @@ class MailSortApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      //debugShowCheckedModeBanner: false,
-      home: MailSort(),
-    );
+    return const MaterialApp(home: MailSort());
   }
 }
 
@@ -52,14 +41,30 @@ class MailSort extends StatefulWidget {
 class _MailSortState extends State<MailSort> {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      scaffoldMessengerKey: rootScaffoldMessengerKey,
-      title: 'KFAB MailSort',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+    return ValueListenableBuilder(
+      valueListenable: Hive.box('settingsBox').listenable(keys: ['darkMode']),
+      builder: (context, Box box, _) {
+        bool isDarkMode = box.get('darkMode', defaultValue: false);
+        return MaterialApp.router(
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
+          title: 'MailSort',
+          theme: ThemeData.light(),
+          darkTheme: ThemeData.dark(),
+          /*
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        primaryColor: Colors.deepPurple,
+        scaffoldBackgroundColor: const Color(0xFF121212), // Standard dark Material background
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1F1F1F),
+          foregroundColor: Colors.white,
+        ),
       ),
-      // Pass the router instance from app_router.dart
-      routerConfig: appRouter,
+      */
+          themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          routerConfig: appRouter,
+        );
+      },
     );
   }
 }

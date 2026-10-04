@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mail_sort/core/data/import_record.dart';
 import 'package:mail_sort/core/data/package.dart';
-import 'package:mail_sort/core/data/scan.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -13,42 +12,20 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   late Box<Package> _packageBox;
-  late Box<Scan> _scanBox;
   late Box<ImportRecord> _importBox;
 
   @override
   void initState() {
     super.initState();
     _packageBox = Hive.box<Package>('packageBox');
-    _scanBox = Hive.box<Scan>('scanBox');
     _importBox = Hive.box<ImportRecord>('importBox');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Dashboard'),
-        actions: [
-          // TODO: remove temporary debug button
-          IconButton(
-            icon: const Icon(Icons.delete_forever, color: Colors.red),
-            tooltip: 'Debug: Clear All Packages',
-            onPressed: () async {
-              await _packageBox.clear();
-              await _scanBox.clear();
-              await _importBox.clear();
-
-              if (!context.mounted) return;
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Hive box cleared!')),
-              );
-            },
-          ),
-          Text(
-            "                  ",
-          ), // Offset AppBar buttons to not be under debug banner
+      appBar: AppBar(title: const Text('Dashboard'), actions: [
+          
         ],
       ),
       body: ValueListenableBuilder(

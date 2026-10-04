@@ -12,33 +12,29 @@ class Slip extends HiveObject {
   String? billId;
 
   @HiveField(2)
-  int? pageNum;
-
-  @HiveField(3)
   int? pageCount;
 
-  @HiveField(4)
+  @HiveField(3)
   String? deliveredBy;
 
-  @HiveField(5)
+  @HiveField(4)
   String? printedBy;
 
-  @HiveField(6)
+  @HiveField(5)
   DateTime? deliveryDate;
 
-  @HiveField(7)
+  @HiveField(6)
   String? remarks;
 
-  @HiveField(8)
+  @HiveField(7)
   DateTime? printDate;
 
-  @HiveField(9)
+  @HiveField(8)
   int? packageCount;
 
   Slip({
     this.billNum,
     this.billId,
-    this.pageNum,
     this.pageCount,
     this.deliveredBy,
     this.printedBy,
@@ -47,4 +43,16 @@ class Slip extends HiveObject {
     this.printDate,
     this.packageCount,
   });
+
+  Map<String, dynamic> toJson() => {
+    'billNum': billNum,
+    'billId': billId,
+    'pageCount': pageCount,
+    'deliveredBy': deliveredBy,
+    'printedBy': printedBy,
+    'deliveryDate': deliveryDate.toString(),
+    'remarks': remarks,
+    'printDate': printDate.toString(),
+    'packageCount': packageCount,
+  };
 }

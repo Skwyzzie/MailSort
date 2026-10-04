@@ -49,23 +49,42 @@ Using the `pdf` package, MailSort constructs new documents by layering `MemoryIm
 1. Clone the repository:
 ```bash
 git clone https://github.com/Skwyzzie/MailSort.git
-
 ```
 
 2. Fetch dependencies:
 ```bash
 flutter pub get
-
 ```
 
 3. Generate Hive type adapters (if modifying models):
 ```bash
 flutter pub run build_runner build
-
 ```
 
 4. Run the application:
 ```bash
 flutter run
-
 ```
+
+## Roadmap
+### 1. Decouple Database Operations from UI Components
+Currently, UI widgets interact directly with the database, opening boxes via `Hive.box<Package>('packageBox')` and saving data directly inside `IconButton` callbacks and scanning methods.
+
+* **Create a Repository Layer:** Abstract Hive logic into a `PackageRepository` or `DatabaseService` class.
+
+### 2. Refactor the PDF Export Service
+The `PdfExportService` currently acts as a monolith. The `generatePackageSlip()` method mixes PDF UI generation (`pw.Stack`, `pw.Positioned`) with database mutations, such as querying for slipless packages, creating new `Slip` objects, and saving them to Hive.
+
+* **Split the Logic:** Move the database mutation logic into database layer. The `PdfExportService` should only be responsible for taking a `List<Package>` and a `Slip` object and returning the generated `.pdf` file.
+
+### 3. Extract Nested UI Methods into Dedicated Widgets
+The `ResponsiveScannerDashboard` and `ScannerHistoryPage` have massive `build` methods utilizing `LayoutBuilder`, `ValueListenableBuilder`, and multiple inline helper methods like `_buildDesktopTable` and `_buildMobileList`.
+
+* **Use Stateless Widgets:** Extract these helper methods into their own standalone `StatelessWidget` classes (e.g., `DesktopScanTable` and `MobileScanList`).
+
+### 4. Centralize Hardcoded Strings and Magic Numbers
+The codebase relies heavily on hardcoded string keys and default values scattered across multiple files.
+
+* **Constants File:** Create a `constants.dart` file to hold Hive box names (`'packageBox'`, `'settingsBox'`, `'slipBox'`) and settings keys (`'defaultBranch'`, `'defaultBillId'`).
+
+* **Magic Numbers:** Move layout constraints (like the `800` pixel tablet breakpoint or the `50` packages-per-page limit) into named constants. This ensures changes only have to be made in one place.

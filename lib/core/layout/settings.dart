@@ -24,6 +24,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String _defaultBillNum = 'Unknown';
   String _defaultDeliverer = 'Unknown';
   String _defaultPrinter = 'Unknown';
+  String _signerName = 'Unknown';
   bool _isDarkModeEnabled = false; // New state variable for dark mode
 
   @override
@@ -52,6 +53,7 @@ class _SettingsPageState extends State<SettingsPage> {
       'defaultPrinter',
       defaultValue: 'Unknown',
     );
+    _signerName = _settingsBox.get('signerName', defaultValue: 'Unknown');
   }
 
   @override
@@ -212,13 +214,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 'Name of the person shown near "printed by" on a bill for packages scanned but not imported.',
               ),
               trailing: SizedBox(
-                width:
-                    180, // Constrains the text field so it fits nicely on the right
+                width: 180,
                 child: TextFormField(
-                  initialValue: _defaultPrinter, // Uses your state variable
+                  initialValue: _defaultPrinter,
                   style: const TextStyle(color: Colors.blueAccent),
                   decoration: const InputDecoration(
-                    isDense: true, // Keeps the text field compact
+                    isDense: true,
                     hintText: 'Enter Printer Name',
                     enabledBorder: UnderlineInputBorder(
                       borderSide: BorderSide(color: Colors.blueAccent),
@@ -231,13 +232,44 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                   ),
                   onChanged: (String newValue) {
-                    // 1. Update the correct state variable
                     setState(() {
                       _defaultPrinter = newValue;
                     });
 
-                    // 2. Save to the correct Hive key
                     _settingsBox.put('defaultPrinter', newValue);
+                  },
+                ),
+              ),
+            ),
+            ListTile(
+              title: const Text('Delivery Signature'),
+              subtitle: const Text(
+                'Name of the person signing for the scanned packages.',
+              ),
+              trailing: SizedBox(
+                width: 180,
+                child: TextFormField(
+                  initialValue: _signerName,
+                  style: const TextStyle(color: Colors.blueAccent),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'Signer Name',
+                    enabledBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(color: Colors.blueAccent),
+                    ),
+                    focusedBorder: UnderlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Colors.blueAccent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                  onChanged: (String newValue) {
+                    setState(() {
+                      _signerName = newValue;
+                    });
+
+                    _settingsBox.put('signerName', newValue);
                   },
                 ),
               ),
@@ -287,6 +319,41 @@ class _SettingsPageState extends State<SettingsPage> {
                   _isDarkModeEnabled = newValue;
                 });
                 _settingsBox.put('darkMode', newValue);
+              },
+            ),
+
+            const Divider(height: 32),
+
+            // --- About / Credits Section ---
+            const Text(
+              'About',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.info_outline),
+              title: const Text('App Info & Credits'),
+              subtitle: const Text('Version 1.0.0'),
+              onTap: () {
+                showAboutDialog(
+                  context: context,
+                  applicationName: 'MailSort',
+                  applicationVersion: '1.0.0',
+                  applicationLegalese:
+                      '© 2026 Designed and Developed by Third Echo Labs (TSgt Hackert, 386 ECES/128 CES). \nAll Rights Reserved.',
+                  applicationIcon: const Icon(
+                    Icons.mark_email_read,
+                    size: 48,
+                    color: Colors.blueAccent,
+                  ),
+                  children: [
+                    const SizedBox(height: 24),
+                    const Text(
+                      'MailSort is a cross-platform mail sorting program built for forward operating locations and designed to work seamlessly with AMPS.',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  ],
+                );
               },
             ),
           ],

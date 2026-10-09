@@ -20,6 +20,8 @@ class PdfExportService {
         '${settings.get('defaultBillId', defaultValue: 'Unknown')}';
     String generatedBillNum =
         '${settings.get('defaultBillNum', defaultValue: 'Unknown')}';
+    String signerName =
+        '${settings.get('signerName', defaultValue: 'Unknown')}';
     List<Package> sliplessPackages = packages
         .where(
           (package) =>
@@ -220,6 +222,12 @@ class PdfExportService {
                     left: 250,
                     top: 748,
                     child: pw.Text('${slip.printDate}'),
+                  ),
+                  pw.Positioned(
+                    //{"page":1,"x":247,"y":614
+                    left: 247,
+                    top: 614,
+                    child: pw.Text(signerName),
                   ),
                 ],
               );

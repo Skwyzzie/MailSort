@@ -4,6 +4,7 @@ import 'package:mail_sort/core/data/package.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:mail_sort/features/import_export/data/exporter.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
 
 class ScannerPage extends StatefulWidget {
   const ScannerPage({super.key});
@@ -22,6 +23,9 @@ class _ScannerPageState extends State<ScannerPage> {
   bool _isSearching = false;
   late int _sortColumnIndex;
   late bool _sortAscending;
+
+  Timer? _debounce;
+  DateTime? _inputStartTime;
 
   @override
   void initState() {
@@ -74,8 +78,33 @@ class _ScannerPageState extends State<ScannerPage> {
                 ),
                 style: const TextStyle(color: Colors.black),
                 onChanged: (value) {
-                  setState(() {
-                    _searchQuery = value;
+                  if (value.length == 1) {
+                    _inputStartTime = DateTime.now();
+                  }
+
+                  if (_debounce?.isActive ?? false) _debounce!.cancel();
+
+                  _debounce = Timer(const Duration(milliseconds: 150), () {
+                    if (_inputStartTime != null) {
+                      final duration = DateTime.now().difference(
+                        _inputStartTime!,
+                      );
+
+                      if (value.length > 10 && duration.inMilliseconds < 500) {
+                        setState(() {
+                          _isSearching = false;
+                          _searchQuery = '';
+                        });
+                        _searchController.clear();
+                        _inputStartTime = null;
+
+                        return;
+                      }
+                    }
+
+                    setState(() {
+                      _searchQuery = value;
+                    });
                   });
                 },
               )
@@ -218,13 +247,8 @@ class _ScannerPageState extends State<ScannerPage> {
                     size: 32, // Slightly larger for mobile tap targets
                   ),
                   onPressed: () {
-                    // 1. Update the UI locally
-                    /*setState(() {
-                      package.isScanned =
-                          !package.isScanned; // Toggles the state
-                    });
-                    */
                     package.isScanned = !package.isScanned;
+                    package.packageType = _settingsBox.get('packageBranch');
                     // 2. Commit the change to the Hive database
                     package.save();
                   },

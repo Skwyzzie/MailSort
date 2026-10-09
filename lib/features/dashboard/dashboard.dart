@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mail_sort/core/data/import_record.dart';
 import 'package:mail_sort/core/data/package.dart';
@@ -13,12 +14,14 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   late Box<Package> _packageBox;
   late Box<ImportRecord> _importBox;
+  late Box _settingsBox;
 
   @override
   void initState() {
     super.initState();
     _packageBox = Hive.box<Package>('packageBox');
     _importBox = Hive.box<ImportRecord>('importBox');
+    _settingsBox = Hive.box('settingsBox');
   }
 
   @override
@@ -77,33 +80,26 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  /*
-  Widget _buildListColumn(String title, List<Package> items) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text(title, style: Theme.of(context).textTheme.titleLarge),
-        ),
-        Expanded(
-          child: items.isEmpty
-              ? const Center(child: Text('No packages'))
-              : ListView.builder(
-                  itemCount: items.length,
-                  itemBuilder: (context, index) => _buildPackage(items[index]),
-                ),
-        ),
-      ],
-    );
-  }
-  */
-
   Widget _buildDashboardTiles(List<Package> items) {
-    final importedPackages = items.where((p) => p.slipNum != '0').toList();
+    final importedPackages = items
+        .where(
+          (p) =>
+              p.slipNum != '0' &&
+              p.slipNum != _settingsBox.get('defaultBillNum') &&
+              p.slipNum != 'Unknown',
+        )
+        .toList();
     final totalImported = importedPackages.length;
     final uniqueSlips = _importBox.length;
     final totalScanned = items.where((p) => p.isScanned).length;
-    final sliplessCount = items.where((p) => p.slipNum == '0').length;
+    final sliplessCount = items
+        .where(
+          (p) =>
+              p.slipNum == '0' ||
+              p.slipNum == _settingsBox.get('defaultBillNum') ||
+              p.slipNum == 'Unknown',
+        )
+        .length;
     final totalPackages = items.length;
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -208,6 +204,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -244,12 +241,30 @@ class _DashboardPageState extends State<DashboardPage> {
         "${package.timeImported.hour}:${package.timeImported.minute.toString().padLeft(2, '0')} on ${package.timeImported.month}/${package.timeImported.day}";
 
     return ListTile(
+      onTap: () async {
+        await Clipboard.setData(ClipboardData(text: package.trackingNum));
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Copied ${package.trackingNum} to clipboard'),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      },
       leading: Icon(
         package.isScanned ? Icons.check_circle : Icons.pending_actions,
         color: package.isScanned ? Colors.green : Colors.orange,
       ),
       title: Text(
-        package.trackingNum,
+        package.trackingNum
+            .replaceAllMapped(
+              RegExp(r'.{1,4}'),
+              (match) => '${match.group(0)} ',
+            )
+            .trim(),
         style: const TextStyle(fontFamily: 'Monospace'),
       ),
       subtitle: Text(
@@ -258,10 +273,13 @@ class _DashboardPageState extends State<DashboardPage> {
             : 'Imported: $timeFormatted (Bill: ${package.slipNum})',
       ),
       trailing: Chip(
-        label: Text(package.isScanned ? 'Scanned' : 'Pending'),
-        backgroundColor: package.isScanned
-            ? Colors.green.withValues(alpha: 0.1)
-            : Colors.orange.withValues(alpha: 0.1),
+        label: Text(package.packageType),
+        backgroundColor: switch (package.packageType) {
+          'Army' => Colors.green.withValues(alpha: 0.1),
+          'Air Force' => Colors.lightBlue.withValues(alpha: 0.1),
+          'Navy' => Colors.blue.withValues(alpha: 0.1),
+          _ => Colors.red.withValues(alpha: 0.1),
+        },
       ),
     );
   }

@@ -33,6 +33,7 @@ MailSort operates entirely locally using an on-device embedded database and comp
               └───────────────────────────┘
 
 ```
+{: text-align: center;"}
 
 ---
 
@@ -95,7 +96,7 @@ MailSort operates entirely locally using an on-device embedded database and comp
 
 ## How It Works: Step-by-Step
 
-### Workflow 1: Manifest Import
+### Workflow Step 1: Manifest Import
 
 1. Navigate to the **Import** section and select an AMPS manifest PDF.
 
@@ -107,7 +108,7 @@ MailSort operates entirely locally using an on-device embedded database and comp
 
 
 
-### Workflow 2: Package Intake & Reconciliation
+### Workflow Step 2: Package Intake & Reconciliation
 
 1. Scan packages continuously using a connected USB/Bluetooth hardware scanner.
 
@@ -119,7 +120,7 @@ MailSort operates entirely locally using an on-device embedded database and comp
 
 
 
-### Workflow 3: Report Exporting
+### Workflow Step 3: Report Exporting
 
 1. Open the **Export** menu to review processed packages and pending slips.
 2. The export engine lays out the tracking numbers, applies visual checkmarks next to verified items, and compiles the document into a printable PDF slip.

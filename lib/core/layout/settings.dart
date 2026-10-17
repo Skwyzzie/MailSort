@@ -346,7 +346,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('App Info & Credits'),
-              subtitle: const Text('Version 1.0.0'),
+              subtitle: const Text('Version ${AppConstants.appVersion}'),
               onTap: () {
                 showAboutDialog(
                   context: context,

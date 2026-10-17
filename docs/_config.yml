@@ -1,0 +1,24 @@
+title: MailSort
+description: A mail sorting application for forward operating locations integrating with AMPS.
+remote_theme: pages-themes/hacker@v0.2.0
+
+# GitHub Pages metadata
+show_downloads: true
+github:
+  is_project_page: true
+  repository_url: https://github.com/Skwyzzie/MailSort
+
+plugins:
+- jekyll-remote-theme
+
+# Markdown rendering options
+markdown: kramdown
+kramdown:
+  input: GFM
+  syntax_highlighter: rouge
+
+# Exclude unnecessary repository files from the site build
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor/

@@ -1,6 +1,9 @@
 # MailSort
 A cross-platform mail sorting program built for forward operating locations and designed to work seamlessly with AMPS. Built with Flutter, MailSort handles bulk PDF manifesting, hardware barcode scanning, and custom PDF report generation.
 
+## Check out the [documentation!](https://skwyzzie.github.io/MailSort/)
+
+
 ## 🚀 Core Features
 * **Ubiquitous Hardware Scanning:** Utilizes a global background listener to intercept rapid keystrokes from hardware scanners on any screen, allowing continuous scanning without needing a focused text field.
 * **Intelligent PDF Import Pipeline:** Converts multi-page PDF manifests into high-resolution images and uses Google ML Kit Text Recognition (OCR) to extract package data.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mail_sort/core/data/constants.dart';
 import 'package:mail_sort/core/data/package.dart';
 import 'package:flutter_barcode_listener/flutter_barcode_listener.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -29,8 +30,8 @@ class _MailSortShellState extends State<MailSortShell> {
   @override
   void initState() {
     super.initState();
-    _packageBox = Hive.box<Package>('packageBox');
-    _settingsBox = Hive.box('settingsBox');
+    _packageBox = Hive.box<Package>(HiveBoxes.packages);
+    _settingsBox = Hive.box(HiveBoxes.settings);
   }
 
   void _onGlobalBarcodeScanned(String barcode) {
@@ -46,7 +47,10 @@ class _MailSortShellState extends State<MailSortShell> {
       trackingNum = barcode;
     }
 
-    var packageType = _settingsBox.get('packageBranch', defaultValue: 'Army');
+    var packageType = _settingsBox.get(
+      SettingsKeys.branch,
+      defaultValue: 'Army',
+    );
 
     final matchedPackage = _packageBox.values.cast<Package?>().firstWhere(
       (p) => p?.trackingNum == trackingNum,

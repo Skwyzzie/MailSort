@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mail_sort/core/data/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -12,16 +13,18 @@ import 'package:share_plus/share_plus.dart';
 
 class PdfExportService {
   Future<Null> generatePackageSlip(BuildContext context) async {
-    Box settings = Hive.box('settingsBox');
+    Box settings = Hive.box(HiveBoxes.settings);
     //Get all package and scan info first, then generate the slip containing all packages and whether they have been scanned or not.
-    List<Package> packages = Hive.box<Package>('packageBox').values.toList();
-    List<Slip> slips = Hive.box<Slip>('slipBox').values.toList();
+    List<Package> packages = Hive.box<Package>(
+      HiveBoxes.packages,
+    ).values.toList();
+    List<Slip> slips = Hive.box<Slip>(HiveBoxes.slips).values.toList();
     String generatedBillId =
-        '${settings.get('defaultBillId', defaultValue: 'Unknown')}';
+        '${settings.get(SettingsKeys.billId, defaultValue: 'Unknown')}';
     String generatedBillNum =
-        '${settings.get('defaultBillNum', defaultValue: 'Unknown')}';
+        '${settings.get(SettingsKeys.billNum, defaultValue: 'Unknown')}';
     String signerName =
-        '${settings.get('signerName', defaultValue: 'Unknown')}';
+        '${settings.get(SettingsKeys.signer, defaultValue: 'Unknown')}';
     List<Package> sliplessPackages = packages
         .where(
           (package) =>
@@ -39,14 +42,14 @@ class PdfExportService {
           billNum: generatedBillNum,
           deliveryDate: DateTime.now(),
           deliveredBy:
-              '${settings.get('defaultDeliverer', defaultValue: 'Unknown')}',
+              '${settings.get(SettingsKeys.deliverer, defaultValue: 'Unknown')}',
           printedBy:
-              '${settings.get('defaultPrinter', defaultValue: 'Unknown')}',
+              '${settings.get(SettingsKeys.printer, defaultValue: 'Unknown')}',
           remarks: 'Auto-generated for packages imported without a bill ID.',
           printDate: DateTime.now(),
           packageCount: sliplessPackages.length,
         );
-        Hive.box<Slip>('slipBox').add(newSlip);
+        Hive.box<Slip>(HiveBoxes.slips).add(newSlip);
         slips.add(newSlip);
 
         for (Package pkg in sliplessPackages) {
@@ -72,7 +75,7 @@ class PdfExportService {
         checkmarkBytes.buffer.asUint8List(),
       );
 
-      //Find out how many packages are in the slip. divide by 50 and round up to get the number of pages needed. Each page can hold 50 packages.
+      //Find out how many packages are in the slip. divide by SettingsKeys.packagesPerPage (50) and round up to get the number of pages needed.
       int packageCount = packages
           .where((package) => package.slipNum == slip.billNum)
           .length;
@@ -81,7 +84,7 @@ class PdfExportService {
         // Skip generating a PDF for this slip if there are no packages associated with it
         continue;
       }
-      int numPages = (packageCount / 50).ceil();
+      int numPages = (packageCount / SettingsKeys.packagesPerPage).ceil();
 
       List<Package> packagesForSlip =
           packages.where((package) => package.slipNum == slip.billNum).toList()
@@ -89,15 +92,15 @@ class PdfExportService {
 
       for (int i = 0; i < numPages; i++) {
         List<Package> packagesForPage = packagesForSlip
-            .skip(i * 50)
-            .take(50)
+            .skip(i * SettingsKeys.packagesPerPage)
+            .take(SettingsKeys.packagesPerPage)
             .toList();
         bool lastItem = false;
-        if (packagesForPage.length < 50) {
+        if (packagesForPage.length < SettingsKeys.packagesPerPage) {
           packagesForPage.add(
             Package(
               file: null,
-              trackingNum: 'LAST ITEM',
+              trackingNum: 'LASTITEM',
               slipNum: '',
               packageType: '',
               timeImported: DateTime.now(),
@@ -181,7 +184,6 @@ class PdfExportService {
                   // Add the footer information
                   // articles
                   pw.Positioned(
-                    //{"page":1,"x":86,"y":587
                     left: 84,
                     top: 585,
                     child: pw.Text(
@@ -190,41 +192,35 @@ class PdfExportService {
                   ),
                   // date of delivery
                   pw.Positioned(
-                    //{"page":1,"x":42,"y":632
                     left: 42,
                     top: 632,
                     child: pw.Text('${slip.deliveryDate}'),
                   ),
                   // delivered by
                   pw.Positioned(
-                    //{"page":1,"x":247,"y":668
                     left: 247,
                     top: 668,
                     child: pw.Text('${slip.deliveredBy}'),
                   ),
                   // printed by
                   pw.Positioned(
-                    //{"page":1,"x":294,"y":689
                     left: 294,
                     top: 689,
                     child: pw.Text('${slip.printedBy}'),
                   ),
                   // remarks
                   pw.Positioned(
-                    //{"page":1,"x":42,"y":722
                     left: 42,
                     top: 722,
                     child: pw.Text('${slip.remarks}'),
                   ),
                   // printed on
                   pw.Positioned(
-                    //{"page":1,"x":250,"y":749
                     left: 250,
                     top: 748,
                     child: pw.Text('${slip.printDate}'),
                   ),
                   pw.Positioned(
-                    //{"page":1,"x":247,"y":614
                     left: 247,
                     top: 614,
                     child: pw.Text(signerName),

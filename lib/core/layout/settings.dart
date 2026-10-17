@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:mail_sort/core/data/constants.dart';
 import '../data/import_record.dart';
 import '../data/package.dart';
 import '../data/slip.dart';
@@ -31,29 +32,41 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     // Initialize the settings box
-    _settingsBox = Hive.box('settingsBox');
-    _packageBox = Hive.box('packageBox');
-    _importBox = Hive.box('importBox');
-    _slipBox = Hive.box('slipBox');
+    _settingsBox = Hive.box(HiveBoxes.settings);
+    _packageBox = Hive.box(HiveBoxes.packages);
+    _importBox = Hive.box(HiveBoxes.imports);
+    _slipBox = Hive.box(HiveBoxes.slips);
 
-    _isDarkModeEnabled = _settingsBox.get('darkMode', defaultValue: false);
+    _isDarkModeEnabled = _settingsBox.get(
+      SettingsKeys.darkMode,
+      defaultValue: false,
+    );
 
     // Load the saved default branch, defaulting to 'Standard' if not yet set
-    _defaultBranch = _settingsBox.get('packageBranch', defaultValue: 'Army');
-    _defaultBillId = _settingsBox.get('defaultBillId', defaultValue: 'Unknown');
+    _defaultBranch = _settingsBox.get(
+      SettingsKeys.branch,
+      defaultValue: 'Army',
+    );
+    _defaultBillId = _settingsBox.get(
+      SettingsKeys.billId,
+      defaultValue: 'Unknown',
+    );
     _defaultBillNum = _settingsBox.get(
-      'defaultBillNum',
+      SettingsKeys.billNum,
       defaultValue: 'Unknown',
     );
     _defaultDeliverer = _settingsBox.get(
-      'defaultDeliverer',
+      SettingsKeys.deliverer,
       defaultValue: 'Unknown',
     );
     _defaultPrinter = _settingsBox.get(
-      'defaultPrinter',
+      SettingsKeys.printer,
       defaultValue: 'Unknown',
     );
-    _signerName = _settingsBox.get('signerName', defaultValue: 'Unknown');
+    _signerName = _settingsBox.get(
+      SettingsKeys.signer,
+      defaultValue: 'Unknown',
+    );
   }
 
   @override
@@ -166,7 +179,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     });
 
                     // 2. Save to the correct Hive key
-                    _settingsBox.put('defaultBillId', newValue);
+                    _settingsBox.put(SettingsKeys.billId, newValue);
                   },
                 ),
               ),
@@ -203,7 +216,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     });
 
                     // 2. Save to the correct Hive key
-                    _settingsBox.put('defaultDeliverer', newValue);
+                    _settingsBox.put(SettingsKeys.deliverer, newValue);
                   },
                 ),
               ),
@@ -236,7 +249,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       _defaultPrinter = newValue;
                     });
 
-                    _settingsBox.put('defaultPrinter', newValue);
+                    _settingsBox.put(SettingsKeys.printer, newValue);
                   },
                 ),
               ),
@@ -269,7 +282,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       _signerName = newValue;
                     });
 
-                    _settingsBox.put('signerName', newValue);
+                    _settingsBox.put(SettingsKeys.signer, newValue);
                   },
                 ),
               ),
@@ -318,7 +331,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 setState(() {
                   _isDarkModeEnabled = newValue;
                 });
-                _settingsBox.put('darkMode', newValue);
+                _settingsBox.put(SettingsKeys.darkMode, newValue);
               },
             ),
 
@@ -337,10 +350,9 @@ class _SettingsPageState extends State<SettingsPage> {
               onTap: () {
                 showAboutDialog(
                   context: context,
-                  applicationName: 'MailSort',
-                  applicationVersion: '1.0.0',
-                  applicationLegalese:
-                      '© 2026 Designed and Developed by Third Echo Labs (TSgt Hackert, 386 ECES/128 CES). \nAll Rights Reserved.',
+                  applicationName: AppConstants.appName,
+                  applicationVersion: AppConstants.appVersion,
+                  applicationLegalese: AppConstants.appLegalese,
                   applicationIcon: const Icon(
                     Icons.mark_email_read,
                     size: 48,
@@ -349,7 +361,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   children: [
                     const SizedBox(height: 24),
                     const Text(
-                      'MailSort is a cross-platform mail sorting program built for forward operating locations and designed to work seamlessly with AMPS.',
+                      AppConstants.appAbout,
                       style: TextStyle(fontSize: 14),
                     ),
                   ],
@@ -406,9 +418,9 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     if (confirmed == true) {
-      await Hive.box<Package>('packageBox').clear();
-      await Hive.box<ImportRecord>('importBox').clear();
-      await Hive.box<Slip>('slipBox').clear();
+      await Hive.box<Package>(HiveBoxes.packages).clear();
+      await Hive.box<ImportRecord>(HiveBoxes.imports).clear();
+      await Hive.box<Slip>(HiveBoxes.slips).clear();
 
       if (!context.mounted) return;
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:mail_sort/core/data/constants.dart';
 import 'core/data/import_record.dart';
 import 'core/data/package.dart';
 import 'core/data/slip.dart';
@@ -14,10 +15,10 @@ void main() async {
   Hive.registerAdapter(SlipAdapter());
   Hive.registerAdapter(ImportRecordAdapter());
 
-  await Hive.openBox<Package>('packageBox');
-  await Hive.openBox<Slip>('slipBox');
-  await Hive.openBox<ImportRecord>('importBox');
-  await Hive.openBox('settingsBox');
+  await Hive.openBox<Package>(HiveBoxes.packages);
+  await Hive.openBox<Slip>(HiveBoxes.slips);
+  await Hive.openBox<ImportRecord>(HiveBoxes.imports);
+  await Hive.openBox(HiveBoxes.settings);
 
   runApp(const MailSortApp());
 }
@@ -42,25 +43,16 @@ class _MailSortState extends State<MailSort> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
-      valueListenable: Hive.box('settingsBox').listenable(keys: ['darkMode']),
+      valueListenable: Hive.box(
+        HiveBoxes.settings,
+      ).listenable(keys: [SettingsKeys.darkMode]),
       builder: (context, Box box, _) {
-        bool isDarkMode = box.get('darkMode', defaultValue: false);
+        bool isDarkMode = box.get(SettingsKeys.darkMode, defaultValue: false);
         return MaterialApp.router(
           scaffoldMessengerKey: rootScaffoldMessengerKey,
-          title: 'MailSort',
+          title: AppConstants.appName,
           theme: ThemeData.light(),
           darkTheme: ThemeData.dark(),
-          /*
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primaryColor: Colors.deepPurple,
-        scaffoldBackgroundColor: const Color(0xFF121212), // Standard dark Material background
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1F1F1F),
-          foregroundColor: Colors.white,
-        ),
-      ),
-      */
           themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
           routerConfig: appRouter,
         );

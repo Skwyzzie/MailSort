@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:mail_sort/core/data/constants.dart';
 import 'package:mail_sort/core/data/import_record.dart';
 import 'package:mail_sort/core/data/package.dart';
 
@@ -19,9 +20,9 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   void initState() {
     super.initState();
-    _packageBox = Hive.box<Package>('packageBox');
-    _importBox = Hive.box<ImportRecord>('importBox');
-    _settingsBox = Hive.box('settingsBox');
+    _packageBox = Hive.box<Package>(HiveBoxes.packages);
+    _importBox = Hive.box<ImportRecord>(HiveBoxes.imports);
+    _settingsBox = Hive.box(HiveBoxes.settings);
   }
 
   @override
@@ -47,26 +48,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
           return LayoutBuilder(
             builder: (context, constraints) {
-              /*if (constraints.maxWidth > 800) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _buildListColumn(
-                            'Waiting to be Scanned',
-                            pending,
-                          ),
-                        ),
-                        const Divider(),
-                        Expanded(
-                          child: _buildListColumn(
-                            'Successfully Scanned',
-                            scanned,
-                          ),
-                        ),
-                      ],
-                    );
-                  }*/
               return Column(
                 children: [
                   _buildDashboardTiles(allPackages),
@@ -85,7 +66,7 @@ class _DashboardPageState extends State<DashboardPage> {
         .where(
           (p) =>
               p.slipNum != '0' &&
-              p.slipNum != _settingsBox.get('defaultBillNum') &&
+              p.slipNum != _settingsBox.get(SettingsKeys.billNum) &&
               p.slipNum != 'Unknown',
         )
         .toList();
@@ -96,7 +77,7 @@ class _DashboardPageState extends State<DashboardPage> {
         .where(
           (p) =>
               p.slipNum == '0' ||
-              p.slipNum == _settingsBox.get('defaultBillNum') ||
+              p.slipNum == _settingsBox.get(SettingsKeys.billNum) ||
               p.slipNum == 'Unknown',
         )
         .length;

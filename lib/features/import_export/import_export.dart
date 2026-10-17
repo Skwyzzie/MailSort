@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:mail_sort/core/data/constants.dart';
 import 'package:mail_sort/core/data/import_record.dart';
 //import 'package:mail_sort/core/data/scan.dart';
 import 'package:mail_sort/features/import_export/data/importer.dart';
@@ -26,8 +27,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
   @override
   void initState() {
     super.initState();
-    _packageBox = Hive.box<Package>('packageBox');
-    _importBox = Hive.box<ImportRecord>('importBox');
+    _packageBox = Hive.box<Package>(HiveBoxes.packages);
+    _importBox = Hive.box<ImportRecord>(HiveBoxes.imports);
   }
 
   Future<void> _handleImport(BuildContext context) async {

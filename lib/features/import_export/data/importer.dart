@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:mail_sort/core/data/constants.dart';
 import 'package:mail_sort/core/data/import_record.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:path_provider/path_provider.dart';
@@ -17,9 +18,12 @@ class PdfImportService {
     required void Function(double progress, String status) onProgress,
     required Future<ImportRecord> Function(PlatformFile file) onFilePicked,
   }) async {
-    settingsBox = Hive.box('settingsBox');
-    importBox = Hive.box<ImportRecord>('importBox');
-    String packageType = settingsBox.get('packageBranch', defaultValue: 'Army');
+    settingsBox = Hive.box(HiveBoxes.settings);
+    importBox = Hive.box<ImportRecord>(HiveBoxes.imports);
+    String packageType = settingsBox.get(
+      SettingsKeys.branch,
+      defaultValue: 'Army',
+    );
 
     List<PlatformFile> files = await FilePicker.pickFiles(
       type: FileType.custom,
@@ -62,7 +66,7 @@ class PdfImportService {
     String currentSlipNum = '';
     final int totalPages = document.pagesCount;
 
-    final Box<Slip> slipBox = Hive.box<Slip>('slipBox');
+    final Box<Slip> slipBox = Hive.box<Slip>(HiveBoxes.slips);
     if (Platform.isWindows || Platform.isMacOS) {
       // Route to platform_ocr implementation
       final DesktopTrackingNumberExtractor ocrExtractor =

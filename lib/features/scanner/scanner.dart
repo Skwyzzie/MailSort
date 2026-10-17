@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:mail_sort/core/data/constants.dart';
 import 'package:mail_sort/core/data/package.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:mail_sort/features/import_export/data/exporter.dart';
@@ -30,10 +31,10 @@ class _ScannerPageState extends State<ScannerPage> {
   @override
   void initState() {
     super.initState();
-    _packageBox = Hive.box<Package>('packageBox');
-    _settingsBox = Hive.box('settingsBox');
-    _sortColumnIndex = _settingsBox.get('sortColumnIndex', defaultValue: 0);
-    _sortAscending = _settingsBox.get('sortAscending', defaultValue: false);
+    _packageBox = Hive.box<Package>(HiveBoxes.packages);
+    _settingsBox = Hive.box(HiveBoxes.settings);
+    _sortColumnIndex = _settingsBox.get(SettingsKeys.column, defaultValue: 0);
+    _sortAscending = _settingsBox.get(SettingsKeys.sort, defaultValue: false);
   }
 
   @override
@@ -176,7 +177,7 @@ class _ScannerPageState extends State<ScannerPage> {
 
           return LayoutBuilder(
             builder: (context, constraints) {
-              if (constraints.maxWidth > 800) {
+              if (constraints.maxWidth > LayoutKeys.desktopMinimum) {
                 return _buildDesktopTable(
                   filteredPackages,
                   constraints.maxWidth,
@@ -209,7 +210,7 @@ class _ScannerPageState extends State<ScannerPage> {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: DataTable2(
-        minWidth: 800,
+        minWidth: LayoutKeys.desktopMinimum,
         sortColumnIndex: _sortColumnIndex,
         sortAscending: _sortAscending,
         headingRowColor: WidgetStateProperty.resolveWith(
@@ -248,7 +249,7 @@ class _ScannerPageState extends State<ScannerPage> {
                   ),
                   onPressed: () {
                     package.isScanned = !package.isScanned;
-                    package.packageType = _settingsBox.get('packageBranch');
+                    package.packageType = _settingsBox.get(SettingsKeys.branch);
                     // 2. Commit the change to the Hive database
                     package.save();
                   },
@@ -495,11 +496,11 @@ class _ScannerPageState extends State<ScannerPage> {
                       file: null, // No image associated
                       trackingNum: trackingNum,
                       slipNum: _settingsBox.get(
-                        'defaultBillNum',
+                        SettingsKeys.billNum,
                         defaultValue: '0',
                       ), // Will be picked up by your PDF exporter
                       packageType: _settingsBox.get(
-                        'packageBranch',
+                        SettingsKeys.branch,
                         defaultValue: 'Army',
                       ),
                       timeImported: DateTime.now(),
@@ -507,7 +508,7 @@ class _ScannerPageState extends State<ScannerPage> {
                     );
 
                     // 2. Save to Hive
-                    Hive.box<Package>('packageBox').add(manualPackage);
+                    Hive.box<Package>(HiveBoxes.packages).add(manualPackage);
 
                     // 3. Close the bottom sheet
                     Navigator.pop(context);

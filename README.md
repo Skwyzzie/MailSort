@@ -101,3 +101,4 @@ The `ResponsiveScannerDashboard` and `ScannerHistoryPage` have massive `build` m
 - [ ] Sort scan table by scanned status and branch
 - [ ] Update manual tracking number add screed with a bill number
 - [ ] Optimize scanner settings to improve scanning resilience to low quality barcodes
+- [ ] Update Docs with screenshots of the app

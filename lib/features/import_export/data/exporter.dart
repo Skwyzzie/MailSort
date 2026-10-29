@@ -233,9 +233,16 @@ class PdfExportService {
       }
 
       // 6. Save to the device's temporary or documents directory
-      final directory = await getApplicationDocumentsDirectory();
+      final docsDir = await getApplicationDocumentsDirectory();
+      final Directory appDir = Directory('${docsDir.path}\\MailSort');
+      final Directory dateFolder = Directory(
+        '${appDir.path}\\${DateTime.now().month.toString()}-${DateTime.now().day.toString()}',
+      );
+      if (!await dateFolder.exists()) {
+        await dateFolder.create(recursive: true);
+      }
       final File outputFile = File(
-        '${directory.path}/${slip.billNum} - Markup.pdf',
+        '${dateFolder.path}\\${slip.billNum} - Markup.pdf',
       );
 
       await outputFile.writeAsBytes(await pdf.save());
@@ -245,6 +252,7 @@ class PdfExportService {
     }
 
     if (exportedFiles.isNotEmpty) {
+      final docsDir = await getApplicationDocumentsDirectory();
       if (Platform.isAndroid || Platform.isIOS) {
         await SharePlus.instance.share(
           ShareParams(
@@ -253,12 +261,16 @@ class PdfExportService {
           ), // Optional message for emails/messages
         );
       } else {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDFs generated at: ${exportedFiles[0].path}'),
-          ),
-        );
+        if (context.mounted) {
+          final Directory appDir = Directory('${docsDir.path}\\MailSort');
+          final String dateFolder =
+              '${DateTime.now().month.toString()} - ${DateTime.now().day.toString()}';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('PDFs generated at: ${appDir.path}\\$dateFolder'),
+            ),
+          );
+        }
       }
     }
   }

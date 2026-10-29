@@ -250,8 +250,13 @@ class _ScannerPageState extends State<ScannerPage> {
                   onPressed: () {
                     package.isScanned = !package.isScanned;
                     package.packageType = _settingsBox.get(SettingsKeys.branch);
+                    package.lastUpdated = DateTime.now();
                     // 2. Commit the change to the Hive database
                     package.save();
+                    if (_isSearching) {
+                      _searchQuery = '';
+                      _searchController.clear();
+                    }
                   },
                 ),
               ),

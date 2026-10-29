@@ -30,4 +30,15 @@ class ImportRecord extends HiveObject {
     'fileSize': fileSize,
     'timeImported': timeImported.toString(),
   };
+
+  factory ImportRecord.fromJson(Map<String, dynamic> json) {
+    return ImportRecord(
+      fileName: json['fileName'] as String? ?? '',
+      filePath: json['filePath'] ?? '',
+      fileSize: json['fileSize'] as String? ?? '0 Kb',
+      timeImported: json['timeImported'] != null
+          ? DateTime.tryParse(json['timeImported'] as String) ?? DateTime.now()
+          : DateTime.now(),
+    );
+  }
 }

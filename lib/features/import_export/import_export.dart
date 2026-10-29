@@ -261,7 +261,9 @@ class _PdfTile extends StatelessWidget {
     child: ListTile(
       leading: const CircleAvatar(child: Icon(Icons.picture_as_pdf)),
       title: Text(file.fileName, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(file.fileSize),
+      subtitle: Text(
+        '${file.fileSize}, Imported: ${file.timeImported.toString()}',
+      ),
       trailing: PopupMenuButton<String>(
         onSelected: (value) => value == 'export' ? onExport() : onDelete(),
         itemBuilder: (_) => const <PopupMenuEntry<String>>[

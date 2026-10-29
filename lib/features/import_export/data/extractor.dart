@@ -204,9 +204,8 @@ class DesktopTrackingNumberExtractor extends TrackingNumberExtractor {
         String sanitized = line.text.replaceAll(' ', '').replaceAll('(NC)', '');
 
         // 1. Handle alphanumeric edge cases FIRST (e.g., USORD)
-        if (sanitized.contains('USORD')) {
-          final startIndex = sanitized.indexOf('USORD');
-          validTrackingNumbers.add(sanitized.substring(startIndex));
+        if (sanitized.contains('US')) {
+          validTrackingNumbers.add(sanitized);
           continue;
         }
 

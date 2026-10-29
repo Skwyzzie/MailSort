@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mail_sort/core/data/constants.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../data/import_record.dart';
 import '../data/package.dart';
 import '../data/slip.dart';
@@ -311,16 +314,26 @@ class _SettingsPageState extends State<SettingsPage> {
                 onPressed: () => _showClearConfirmation(context),
               ),
             ),
-
             ListTile(
-              title: const Text('Export Database Records to JSON'),
+              title: const Text('Backup app state'),
               subtitle: const Text(
-                'Exports all packages, scans, and imports as a JSON file.',
+                'Exports all packages, scans, and imports, Hive boxes, and settings to a custom file for backup.',
               ),
               trailing: IconButton(
                 icon: const Icon(Icons.download, color: Colors.blue),
-                tooltip: 'Debug: Export Database to JSON',
-                onPressed: () => _exportHiveBoxes(),
+                tooltip: 'Export app state to .mailsort file',
+                onPressed: () => _backupAppState(),
+              ),
+            ),
+            ListTile(
+              title: const Text('Restore app state from backup'),
+              subtitle: const Text(
+                'Select a .mailsort backup file and the app will load its entire state from the backup.',
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.upload, color: Colors.blue),
+                tooltip: 'Import .mailsort backup',
+                onPressed: () => _restoreAppState(),
               ),
             ),
             SwitchListTile(
@@ -346,7 +359,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ListTile(
               leading: const Icon(Icons.info_outline),
               title: const Text('App Info & Credits'),
-              subtitle: const Text('Version ${AppConstants.appVersion}'),
+              subtitle: Text('Version ${AppConstants.appVersion}'),
               onTap: () {
                 showAboutDialog(
                   context: context,
@@ -374,26 +387,64 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Future<void> _exportHiveBoxes() async {
-    final fileName = DateTime.now().toIso8601String().replaceAll(':', '-');
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Exporting JSON files ending in $fileName…')),
-    );
-    final pBoxMap = _packageBox.toMap().map(
-      (key, value) => MapEntry(key.toString(), value.toJson()),
-    );
-    final iBoxMap = _importBox.toMap().map(
-      (key, value) => MapEntry(key.toString(), value.toJson()),
-    );
-    final sBoxMap = _slipBox.toMap().map(
-      (key, value) => MapEntry(key.toString(), value.toJson()),
-    );
-    final pJson = jsonEncode(pBoxMap);
-    final iJson = jsonEncode(iBoxMap);
-    final sJson = jsonEncode(sBoxMap);
-    File('packages_$fileName.json').writeAsString(pJson);
-    File('imports_$fileName.json').writeAsString(iJson);
-    File('slips_$fileName.json').writeAsString(sJson);
+  Future<File> _backupAppState() async {
+    final Map<String, dynamic> fullBackup = {
+      'version': 1,
+      'createdAt': DateTime.now().toIso8601String(),
+      'appName': 'MailSort',
+      'boxes': {
+        // Serializing lists of HiveObjects using their .toJson() methods
+        'packageBox': _packageBox.values.map((p) => p.toJson()).toList(),
+        'slipBox': _slipBox.values.map((s) => s.toJson()).toList(),
+        'importBox': _importBox.values.map((i) => i.toJson()).toList(),
+        'settingsBox': Map<String, dynamic>.from(_settingsBox.toMap()),
+      },
+    };
+    final String jsonString = const JsonEncoder.withIndent(
+      '  ',
+    ).convert(fullBackup);
+
+    Directory docsDir = await getApplicationDocumentsDirectory();
+    // Create a dedicated subfolder for your data
+    final Directory appDir = Directory('${docsDir.path}\\MailSort');
+    final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
+    final File backupFile = File('${appDir.path}\\backup_$timestamp.mailsort');
+
+    await backupFile.writeAsString(jsonString);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Exported app backup to file: ${backupFile.path}'),
+        ),
+      );
+    }
+    return backupFile;
+  }
+
+  Future<void> handleBackupExport(BuildContext context) async {
+    final File backupFile = await _backupAppState();
+
+    if (await backupFile.exists()) {
+      if (Platform.isAndroid || Platform.isIOS) {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(backupFile.path, mimeType: 'application/json')],
+            text: 'MailSort Database Backup',
+          ), // Optional message for emails/messages
+        );
+      } else {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('App backup created at: ${backupFile.path}')),
+        );
+      }
+    } else {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to generate backup.')),
+      );
+    }
   }
 
   Future<void> _showClearConfirmation(BuildContext context) async {
@@ -430,6 +481,71 @@ class _SettingsPageState extends State<SettingsPage> {
           duration: Duration(seconds: 1),
         ),
       );
+    }
+  }
+
+  Future<bool> _restoreAppState() async {
+    try {
+      List<PlatformFile> result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['mailsort', 'json'],
+        dialogTitle: 'Select MailSort Backup',
+      );
+
+      if (result.isEmpty || result.single.path == null) return false;
+      File backupFile = File(result.single.path!);
+      final String contents = await backupFile.readAsString();
+      final Map<String, dynamic> backupData = jsonDecode(contents);
+
+      final Map<String, dynamic> boxes = backupData['boxes'];
+
+      // 1. Restore Packages
+      await _packageBox.clear();
+      final List packageList = boxes[HiveBoxes.packages] ?? [];
+      for (var item in packageList) {
+        await _packageBox.add(
+          Package.fromJson(Map<String, dynamic>.from(item)),
+        );
+      }
+
+      // 2. Restore Slips
+      await _slipBox.clear();
+      final List slipList = boxes[HiveBoxes.slips] ?? [];
+      for (var item in slipList) {
+        await _slipBox.add(Slip.fromJson(Map<String, dynamic>.from(item)));
+      }
+
+      // 3. Restore Imports
+      await _importBox.clear();
+      final List importList = boxes[HiveBoxes.imports] ?? [];
+      for (var item in importList) {
+        await _importBox.add(
+          ImportRecord.fromJson(Map<String, dynamic>.from(item)),
+        );
+      }
+
+      // 4. Restore Settings
+      await _settingsBox.clear();
+      final Map<String, dynamic> settingsMap = Map<String, dynamic>.from(
+        boxes[HiveBoxes.settings] ?? {},
+      );
+      await _settingsBox.putAll(settingsMap);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Import successful! Imported ${packageList.length} packages.',
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Failed to restore backup: $e');
+      return false;
     }
   }
 }

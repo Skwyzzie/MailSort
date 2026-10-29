@@ -44,4 +44,20 @@ class Package extends HiveObject {
     'timeImported': timeImported.toString(),
     'lastUpdated': lastUpdated.toString(),
   };
+
+  factory Package.fromJson(Map<String, dynamic> json) {
+    return Package(
+      trackingNum: json['trackingNum'] as String? ?? '',
+      slipNum: json['slipNum'] ?? 0,
+      packageType: json['branch'] as String? ?? 'Army',
+      timeImported: json['timeImported'] != null
+          ? DateTime.tryParse(json['timeImported'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      lastUpdated: json['lastUpdated'] != null
+          ? DateTime.tryParse(json['lastUpdated'] as String)
+          : null,
+      isScanned: json['bScanned'] as bool? ?? false,
+      file: json['file'] as ImportRecord?,
+    );
+  }
 }

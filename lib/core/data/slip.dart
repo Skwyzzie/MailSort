@@ -44,6 +44,24 @@ class Slip extends HiveObject {
     this.packageCount,
   });
 
+  /// Factory constructor to deserialize from JSON map
+  factory Slip.fromJson(Map<String, dynamic> json) {
+    return Slip(
+      billId: json['billId'] as String? ?? 'Unknown',
+      billNum: json['billNum'] as String? ?? 'Unknown',
+      deliveryDate: json['deliveryDate'] != null
+          ? DateTime.tryParse(json['deliveryDate'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      deliveredBy: json['deliveredBy'] as String? ?? 'Unknown',
+      printedBy: json['printedBy'] as String? ?? 'Unknown',
+      remarks: json['remarks'] as String? ?? '',
+      printDate: json['printDate'] != null
+          ? DateTime.tryParse(json['printDate'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      packageCount: (json['packageCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'billNum': billNum,
     'billId': billId,

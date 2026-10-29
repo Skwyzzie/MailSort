@@ -93,12 +93,12 @@ The `ResponsiveScannerDashboard` and `ScannerHistoryPage` have massive `build` m
 ~~* **Magic Numbers:** Move layout constraints (like the `800` pixel tablet breakpoint or the `50` packages-per-page limit) into named constants. This ensures changes only have to be made in one place.~~
 
 ### 5. QOL/Feature upgrades
-- [ ] After searching amanually scanning a package, auto clear search box
+- [x] After searching amanually scanning a package, auto clear search box
 - [ ] If importing a bill after packages have already been scanned, update packages with bill number
-- [ ] Create custom file type and add import/export functionality to move application state to another device
+- [x] Create custom file type and add import/export functionality to move application state to another device
 - [ ] Add search from dashboard
-- [ ] Change imported Pdf tile to show import time
+- [x] Change imported Pdf tile to show import time
 - [ ] Sort scan table by scanned status and branch
-- [ ] Update manual tracking number add screed with a bill number
+- [ ] Update manual tracking number add screen with a bill number
 - [ ] Optimize scanner settings to improve scanning resilience to low quality barcodes
 - [ ] Update Docs with screenshots of the app

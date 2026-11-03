@@ -26,16 +26,22 @@ class MailSortShell extends StatefulWidget {
 class _MailSortShellState extends State<MailSortShell> {
   late Box<Package> _packageBox;
   late Box _settingsBox;
+  late Box _invalidScansBox;
 
   @override
   void initState() {
     super.initState();
     _packageBox = Hive.box<Package>(HiveBoxes.packages);
     _settingsBox = Hive.box(HiveBoxes.settings);
+    _invalidScansBox = Hive.box(HiveBoxes.invalidScans);
   }
 
   void _onGlobalBarcodeScanned(String barcode) {
     if (!isValidTrackingNumber(barcode)) {
+      _invalidScansBox.add({
+        'scannedCode': barcode,
+        'timestamp': DateTime.now().toIso8601String(),
+      });
       _showSnackbar('Invalid tracking number scanned: $barcode');
       return;
     }

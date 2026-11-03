@@ -10,6 +10,7 @@ abstract final class HiveBoxes {
   static const String packages = 'packageBox';
   static const String imports = 'importBox';
   static const String slips = 'slipBox';
+  static const String invalidScans = 'invalidScansBox';
 }
 
 abstract final class SettingsKeys {

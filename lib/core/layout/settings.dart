@@ -20,6 +20,7 @@ class SettingsPage extends StatefulWidget {
 
 class _SettingsPageState extends State<SettingsPage> {
   late Box _settingsBox;
+  late Box _invalidScansBox;
   late Box<Package> _packageBox;
   late Box<ImportRecord> _importBox;
   late Box<Slip> _slipBox;
@@ -395,6 +396,9 @@ class _SettingsPageState extends State<SettingsPage> {
       'boxes': {
         // Serializing lists of HiveObjects using their .toJson() methods
         'packageBox': _packageBox.values.map((p) => p.toJson()).toList(),
+        'invalidScansBox': _invalidScansBox.values
+            .map((i) => i.toJson())
+            .toList(),
         'slipBox': _slipBox.values.map((s) => s.toJson()).toList(),
         'importBox': _importBox.values.map((i) => i.toJson()).toList(),
         'settingsBox': Map<String, dynamic>.from(_settingsBox.toMap()),
@@ -530,6 +534,12 @@ class _SettingsPageState extends State<SettingsPage> {
         boxes[HiveBoxes.settings] ?? {},
       );
       await _settingsBox.putAll(settingsMap);
+      // 4. Restore Invalid Scans
+      await _invalidScansBox.clear();
+      final Map<String, dynamic> invalidScansMap = Map<String, dynamic>.from(
+        boxes[HiveBoxes.invalidScans] ?? {},
+      );
+      await _invalidScansBox.putAll(invalidScansMap);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

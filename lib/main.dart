@@ -33,6 +33,7 @@ void main() async {
   await Hive.openBox<Slip>(HiveBoxes.slips);
   await Hive.openBox<ImportRecord>(HiveBoxes.imports);
   await Hive.openBox(HiveBoxes.settings);
+  await Hive.openBox(HiveBoxes.invalidScans);
 
   runApp(const MailSortApp());
 }

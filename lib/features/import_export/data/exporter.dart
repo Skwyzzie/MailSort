@@ -9,6 +9,7 @@ import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:mail_sort/core/data/slip.dart';
 import 'package:mail_sort/core/data/package.dart';
+import 'package:mail_sort/core/data/unit.dart';
 import 'package:share_plus/share_plus.dart';
 
 class PdfExportService {
@@ -23,8 +24,9 @@ class PdfExportService {
         '${settings.get(SettingsKeys.billId, defaultValue: 'Unknown')}';
     String generatedBillNum =
         '${settings.get(SettingsKeys.billNum, defaultValue: 'Unknown')}';
-    String signerName =
-        '${settings.get(SettingsKeys.signer, defaultValue: 'Unknown')}';
+
+    //String afRepName =
+    //    '${settings.get(SettingsKeys.afRep, defaultValue: 'Unknown')}';
     List<Package> sliplessPackages = packages
         .where(
           (package) =>
@@ -62,192 +64,29 @@ class PdfExportService {
     List<XFile> exportedFiles = [];
 
     for (Slip slip in slips) {
-      final pdf = pw.Document();
-      pw.Font();
-      final ByteData imageBytes = await rootBundle.load(
-        'assets/slip_template.png',
-      );
-      final Uint8List templateData = imageBytes.buffer.asUint8List();
-      final pw.MemoryImage templateImage = pw.MemoryImage(templateData);
-
-      final ByteData checkmarkBytes = await rootBundle.load('assets/check.png');
-      final checkmarkImage = pw.MemoryImage(
-        checkmarkBytes.buffer.asUint8List(),
-      );
-
       //Find out how many packages are in the slip. divide by SettingsKeys.packagesPerPage (50) and round up to get the number of pages needed.
-      int packageCount = packages
-          .where((package) => package.slipNum == slip.billNum)
-          .length;
-
-      if (packageCount == 0) {
-        // Skip generating a PDF for this slip if there are no packages associated with it
-        continue;
-      }
-      int numPages = (packageCount / SettingsKeys.packagesPerPage).ceil();
 
       List<Package> packagesForSlip =
           packages.where((package) => package.slipNum == slip.billNum).toList()
             ..sort((a, b) => a.trackingNum.compareTo(b.trackingNum));
 
-      for (int i = 0; i < numPages; i++) {
-        List<Package> packagesForPage = packagesForSlip
-            .skip(i * SettingsKeys.packagesPerPage)
-            .take(SettingsKeys.packagesPerPage)
-            .toList();
-        bool lastItem = false;
-        if (packagesForPage.length < SettingsKeys.packagesPerPage) {
-          packagesForPage.add(
-            Package(
-              file: null,
-              trackingNum: 'LASTITEM',
-              slipNum: '',
-              packageType: '',
-              timeImported: DateTime.now(),
-              isScanned: false,
-            ),
-          );
-          lastItem = true;
+      File? pdf = await _generatePDF(slip, packagesForSlip);
+      if (pdf != null) {
+        exportedFiles.add(XFile(pdf.path));
+      }
+    }
+
+    if (Hive.box(
+          HiveBoxes.settings,
+        ).get(SettingsKeys.unitExport, defaultValue: false) ==
+        true) {
+      //Get list of units, then generate a PDF for each of them.
+      final units = Hive.box<Unit>(HiveBoxes.unitList).values;
+      for (Unit unit in units) {
+        File? pdf = await exportUnitPDF(unit.unitName);
+        if (pdf != null) {
+          exportedFiles.add(XFile(pdf.path));
         }
-        // 2. Build the PDF page
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.letter,
-            margin: pw.EdgeInsets.zero,
-            build: (pw.Context context) {
-              return pw.Stack(
-                children: [
-                  pw.Positioned.fill(
-                    child: pw.Image(templateImage, fit: pw.BoxFit.cover),
-                  ),
-                  // Fill in header information
-                  // Bill Number
-                  pw.Positioned(
-                    left: 107,
-                    top: 53.5,
-                    child: pw.Text('${slip.billNum}'),
-                  ),
-                  // Bill ID
-                  pw.Positioned(
-                    left: 77,
-                    top: 67,
-                    child: pw.Text('${slip.billId}'),
-                  ),
-                  // Page Num
-                  pw.Positioned(
-                    //{"page":1,"x":247,"y":76
-                    left: 247,
-                    top: 75,
-                    child: pw.Text('${i + 1} of $numPages'),
-                  ),
-
-                  ...packagesForPage.asMap().entries.map((p) {
-                    if (packagesForPage.isEmpty) {
-                      return pw.Container(); // Return an empty container if there are no packages
-                    }
-
-                    int index = p.key + 1;
-                    double offset = 17.9;
-                    double x = 0;
-
-                    int rowMultiplier = index < 26 ? index : index - 25;
-                    // "x":66, "y":140  // Package 1
-                    // "x":345, "y":139 // Package 26
-                    if (index < 26) {
-                      x = 68.0;
-                    } else {
-                      x = 347.0;
-                    }
-                    return pw.Positioned(
-                      left: x,
-                      top: 122.0 + (rowMultiplier * offset),
-                      child: pw.Row(
-                        children: [
-                          pw.Text(
-                            p.value.trackingNum
-                                .replaceAllMapped(
-                                  RegExp(r'.{1,4}'),
-                                  (match) => '${match.group(0)} ',
-                                )
-                                .trim(),
-                          ),
-                          pw.SizedBox(width: 10),
-                          if (p.value.isScanned) ...[
-                            pw.Image(checkmarkImage, width: 15, height: 15),
-                            pw.Text(p.value.packageType),
-                          ],
-                        ],
-                      ),
-                    );
-                  }),
-
-                  // Add the footer information
-                  // articles
-                  pw.Positioned(
-                    left: 84,
-                    top: 585,
-                    child: pw.Text(
-                      '${lastItem ? packagesForPage.length - 1 : packagesForPage.length}',
-                    ),
-                  ),
-                  // date of delivery
-                  pw.Positioned(
-                    left: 42,
-                    top: 632,
-                    child: pw.Text('${slip.deliveryDate}'),
-                  ),
-                  // delivered by
-                  pw.Positioned(
-                    left: 247,
-                    top: 668,
-                    child: pw.Text('${slip.deliveredBy}'),
-                  ),
-                  // printed by
-                  pw.Positioned(
-                    left: 294,
-                    top: 689,
-                    child: pw.Text('${slip.printedBy}'),
-                  ),
-                  // remarks
-                  pw.Positioned(
-                    left: 42,
-                    top: 722,
-                    child: pw.Text('${slip.remarks}'),
-                  ),
-                  // printed on
-                  pw.Positioned(
-                    left: 250,
-                    top: 748,
-                    child: pw.Text('${slip.printDate}'),
-                  ),
-                  pw.Positioned(
-                    left: 247,
-                    top: 614,
-                    child: pw.Text(signerName),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      }
-
-      // 6. Save to the device's temporary or documents directory
-      final docsDir = await getApplicationDocumentsDirectory();
-      final Directory appDir = Directory('${docsDir.path}\\MailSort');
-      final Directory dateFolder = Directory(
-        '${appDir.path}\\${DateTime.now().month.toString()}-${DateTime.now().day.toString()}',
-      );
-      if (!await dateFolder.exists()) {
-        await dateFolder.create(recursive: true);
-      }
-      final File outputFile = File(
-        '${dateFolder.path}\\${slip.billNum} - Markup.pdf',
-      );
-
-      await outputFile.writeAsBytes(await pdf.save());
-      if (!exportedFiles.any((file) => file.path == outputFile.path)) {
-        exportedFiles.add(XFile(outputFile.path));
       }
     }
 
@@ -273,5 +112,228 @@ class PdfExportService {
         }
       }
     }
+  }
+
+  Future<File?> exportUnitPDF(String unit) async {
+    List<Package> packages = Hive.box<Package>(
+      HiveBoxes.packages,
+    ).values.toList();
+    Unit? selectedUnit = Hive.box<Unit>(HiveBoxes.unitList).values
+        .cast<Unit?>()
+        .firstWhere((u) => u?.unitName == unit, orElse: () => null);
+
+    List<Package> unitPackages = packages
+        .where((package) => package.unit == unit)
+        .toList();
+    if (unitPackages.isNotEmpty) {
+      final unitSlip = Slip(
+        billId: selectedUnit?.unitName ?? unit.toUpperCase(),
+        billNum: selectedUnit?.unitAbbreviation ?? unit.toUpperCase(),
+        deliveryDate: DateTime.now(),
+        deliveredBy:
+            '${Hive.box(HiveBoxes.settings).get(SettingsKeys.deliverer, defaultValue: 'Unknown')}',
+        printedBy:
+            '${Hive.box(HiveBoxes.settings).get(SettingsKeys.printer, defaultValue: 'Unknown')}',
+        remarks:
+            'Auto-generated for packages delivered for ${selectedUnit?.unitName ?? unit.toUpperCase()}.',
+        printDate: DateTime.now(),
+        packageCount: unitPackages.length,
+      );
+
+      File? pdf = await _generatePDF(unitSlip, unitPackages);
+      if (pdf != null) {
+        return pdf;
+      }
+    }
+    return null;
+  }
+
+  Future<File?> _generatePDF(Slip slip, List<Package> packagesForSlip) async {
+    String signerName;
+    if (Hive.box(
+          HiveBoxes.settings,
+        ).get(SettingsKeys.unitExport, defaultValue: false) ==
+        true) {
+      Unit? selectedUnit = Hive.box<Unit>(HiveBoxes.unitList).values
+          .cast<Unit?>()
+          .firstWhere((u) => u?.unitName == slip.billNum, orElse: () => null);
+      signerName = selectedUnit?.unitMailClerk ?? 'Unknown';
+    } else {
+      signerName = Hive.box(
+        HiveBoxes.settings,
+      ).get(SettingsKeys.signer, defaultValue: 'Unknown');
+    }
+
+    final pdf = pw.Document();
+    pw.Font();
+    final ByteData imageBytes = await rootBundle.load(
+      'assets/slip_template.png',
+    );
+    final Uint8List templateData = imageBytes.buffer.asUint8List();
+    final pw.MemoryImage templateImage = pw.MemoryImage(templateData);
+
+    final ByteData checkmarkBytes = await rootBundle.load('assets/check.png');
+    final checkmarkImage = pw.MemoryImage(checkmarkBytes.buffer.asUint8List());
+
+    if (packagesForSlip.isEmpty) {
+      // Skip generating a PDF for this slip if there are no packages associated with it
+      return null;
+    }
+    int numPages = (packagesForSlip.length / SettingsKeys.packagesPerPage)
+        .ceil();
+
+    for (int i = 0; i < numPages; i++) {
+      List<Package> packagesForPage = packagesForSlip
+          .skip(i * SettingsKeys.packagesPerPage)
+          .take(SettingsKeys.packagesPerPage)
+          .toList();
+      bool lastItem = false;
+      if (packagesForPage.length < SettingsKeys.packagesPerPage) {
+        packagesForPage.add(
+          Package(
+            file: null,
+            trackingNum: 'LASTITEM',
+            slipNum: '',
+            packageType: '',
+            timeImported: DateTime.now(),
+            isScanned: false,
+          ),
+        );
+        lastItem = true;
+      }
+      // 2. Build the PDF page
+      pdf.addPage(
+        pw.Page(
+          pageFormat: PdfPageFormat.letter,
+          margin: pw.EdgeInsets.zero,
+          build: (pw.Context context) {
+            return pw.Stack(
+              children: [
+                pw.Positioned.fill(
+                  child: pw.Image(templateImage, fit: pw.BoxFit.cover),
+                ),
+                // Fill in header information
+                // Bill Number
+                pw.Positioned(
+                  left: 107,
+                  top: 53.5,
+                  child: pw.Text('${slip.billNum}'),
+                ),
+                // Bill ID
+                pw.Positioned(
+                  left: 77,
+                  top: 67,
+                  child: pw.Text('${slip.billId}'),
+                ),
+                // Page Num
+                pw.Positioned(
+                  //{"page":1,"x":247,"y":76
+                  left: 247,
+                  top: 75,
+                  child: pw.Text('${i + 1} of $numPages'),
+                ),
+
+                ...packagesForPage.asMap().entries.map((p) {
+                  if (packagesForPage.isEmpty) {
+                    return pw.Container(); // Return an empty container if there are no packages
+                  }
+
+                  int index = p.key + 1;
+                  double offset = 17.9;
+                  double x = 0;
+
+                  int rowMultiplier = index < 26 ? index : index - 25;
+                  // "x":66, "y":140  // Package 1
+                  // "x":345, "y":139 // Package 26
+                  if (index < 26) {
+                    x = 68.0;
+                  } else {
+                    x = 347.0;
+                  }
+                  return pw.Positioned(
+                    left: x,
+                    top: 122.0 + (rowMultiplier * offset),
+                    child: pw.Row(
+                      children: [
+                        pw.Text(
+                          p.value.trackingNum
+                              .replaceAllMapped(
+                                RegExp(r'.{1,4}'),
+                                (match) => '${match.group(0)} ',
+                              )
+                              .trim(),
+                        ),
+                        pw.SizedBox(width: 10),
+                        if (p.value.isScanned) ...[
+                          pw.Image(checkmarkImage, width: 15, height: 15),
+                          pw.Text(p.value.packageType),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
+
+                // Add the footer information
+                // articles
+                pw.Positioned(
+                  left: 84,
+                  top: 585,
+                  child: pw.Text(
+                    '${lastItem ? packagesForPage.length - 1 : packagesForPage.length}',
+                  ),
+                ),
+                // date of delivery
+                pw.Positioned(
+                  left: 42,
+                  top: 632,
+                  child: pw.Text('${slip.deliveryDate}'),
+                ),
+                // delivered by
+                pw.Positioned(
+                  left: 247,
+                  top: 668,
+                  child: pw.Text('${slip.deliveredBy}'),
+                ),
+                // printed by
+                pw.Positioned(
+                  left: 294,
+                  top: 689,
+                  child: pw.Text('${slip.printedBy}'),
+                ),
+                // remarks
+                pw.Positioned(
+                  left: 42,
+                  top: 722,
+                  child: pw.Text('${slip.remarks}'),
+                ),
+                // printed on
+                pw.Positioned(
+                  left: 250,
+                  top: 748,
+                  child: pw.Text('${slip.printDate}'),
+                ),
+                pw.Positioned(left: 247, top: 614, child: pw.Text(signerName)),
+              ],
+            );
+          },
+        ),
+      );
+    }
+
+    // 6. Save to the device's temporary or documents directory
+    final docsDir = await getApplicationDocumentsDirectory();
+    final Directory appDir = Directory('${docsDir.path}\\MailSort');
+    final Directory dateFolder = Directory(
+      '${appDir.path}\\${DateTime.now().month.toString()}-${DateTime.now().day.toString()}',
+    );
+    if (!await dateFolder.exists()) {
+      await dateFolder.create(recursive: true);
+    }
+    final File outputFile = File(
+      '${dateFolder.path}\\${slip.billNum} - Markup.pdf',
+    );
+
+    await outputFile.writeAsBytes(await pdf.save());
+    return outputFile;
   }
 }

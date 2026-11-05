@@ -5,6 +5,7 @@ import 'package:mail_sort/core/data/constants.dart';
 import 'core/data/import_record.dart';
 import 'core/data/package.dart';
 import 'core/data/slip.dart';
+import 'core/data/unit.dart';
 import 'core/layout/app_shell.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -28,12 +29,19 @@ void main() async {
   Hive.registerAdapter(PackageAdapter());
   Hive.registerAdapter(SlipAdapter());
   Hive.registerAdapter(ImportRecordAdapter());
+  Hive.registerAdapter(UnitAdapter());
 
   await Hive.openBox<Package>(HiveBoxes.packages);
   await Hive.openBox<Slip>(HiveBoxes.slips);
   await Hive.openBox<ImportRecord>(HiveBoxes.imports);
   await Hive.openBox(HiveBoxes.settings);
   await Hive.openBox(HiveBoxes.invalidScans);
+  await Hive.openBox<Unit>(HiveBoxes.unitList);
+
+  /* DEBUG ONLY
+  await Hive.deleteBoxFromDisk(HiveBoxes.settings);
+  await Hive.deleteBoxFromDisk(HiveBoxes.unitList);
+  */
 
   runApp(const MailSortApp());
 }

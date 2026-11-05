@@ -10,6 +10,8 @@ import 'package:share_plus/share_plus.dart';
 import '../data/import_record.dart';
 import '../data/package.dart';
 import '../data/slip.dart';
+import '../data/unit.dart';
+import 'package:yaml/yaml.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -21,6 +23,7 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late Box _settingsBox;
   late Box _invalidScansBox;
+  late Box<Unit> _unitListBox;
   late Box<Package> _packageBox;
   late Box<ImportRecord> _importBox;
   late Box<Slip> _slipBox;
@@ -30,7 +33,10 @@ class _SettingsPageState extends State<SettingsPage> {
   String _defaultDeliverer = 'Unknown';
   String _defaultPrinter = 'Unknown';
   String _signerName = 'Unknown';
-  bool _isDarkModeEnabled = false; // New state variable for dark mode
+  String _selectedUnit = '';
+  bool _isDarkModeEnabled = false;
+  bool _isUnitExportEnabled = false;
+  List<DropdownMenuItem<String>> dropdownUnits = [];
 
   @override
   void initState() {
@@ -40,6 +46,13 @@ class _SettingsPageState extends State<SettingsPage> {
     _packageBox = Hive.box(HiveBoxes.packages);
     _importBox = Hive.box(HiveBoxes.imports);
     _slipBox = Hive.box(HiveBoxes.slips);
+    _invalidScansBox = Hive.box(HiveBoxes.invalidScans);
+    _unitListBox = Hive.box(HiveBoxes.unitList);
+
+    _isUnitExportEnabled = _settingsBox.get(
+      SettingsKeys.unitExport,
+      defaultValue: false,
+    );
 
     _isDarkModeEnabled = _settingsBox.get(
       SettingsKeys.darkMode,
@@ -49,8 +62,28 @@ class _SettingsPageState extends State<SettingsPage> {
     // Load the saved default branch, defaulting to 'Standard' if not yet set
     _defaultBranch = _settingsBox.get(
       SettingsKeys.branch,
-      defaultValue: 'Army',
+      defaultValue: 'ARMY GENERAL DELIVERY',
     );
+
+    _selectedUnit = _settingsBox.get(
+      SettingsKeys.selectedUnit,
+      defaultValue: '',
+    );
+
+    // 1. Extract all units from the Hive box
+    final allUnits = _unitListBox.values.cast<Unit>().toList();
+    dropdownUnits = _buildGroupedDropdownItems(allUnits);
+
+    if (!allUnits.asMap().entries.any(
+      (entry) => entry.value.unitName == _selectedUnit,
+    )) {
+      debugPrint(
+        'Selected unit $_selectedUnit not found in the unit list. Resetting to default branch.',
+      );
+      _selectedUnit = '';
+      _settingsBox.put(SettingsKeys.selectedUnit, '');
+    }
+
     _defaultBillId = _settingsBox.get(
       SettingsKeys.billId,
       defaultValue: 'Unknown',
@@ -93,27 +126,13 @@ class _SettingsPageState extends State<SettingsPage> {
                 'Assigned automatically to newly imported packages.',
               ),
               trailing: DropdownButton<String>(
-                value: _defaultBranch,
+                value: _selectedUnit == '' ? _defaultBranch : _selectedUnit,
                 icon: const Icon(Icons.arrow_drop_down),
                 elevation: 16,
                 style: const TextStyle(color: Colors.blueAccent),
                 underline: Container(height: 2, color: Colors.blueAccent),
-                onChanged: (String? newValue) {
-                  if (newValue != null && newValue != _defaultBranch) {
-                    setState(() {
-                      _defaultBranch = newValue;
-                      _settingsBox.put('packageBranch', newValue);
-                    });
-                  }
-                },
-                items: <String>['Army', 'Air Force', 'Navy', 'Marines']
-                    .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    })
-                    .toList(),
+                onChanged: _onBranchChanged,
+                items: dropdownUnits,
               ),
             ),
             ListTile(
@@ -291,6 +310,17 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ),
+            SwitchListTile(
+              title: const Text('Export Unit specific reports'),
+              subtitle: const Text('Enable unit specific report export'),
+              value: _isUnitExportEnabled,
+              onChanged: (bool newValue) {
+                setState(() {
+                  _isUnitExportEnabled = newValue;
+                });
+                _settingsBox.put(SettingsKeys.unitExport, newValue);
+              },
+            ),
 
             const Divider(height: 32),
 
@@ -335,6 +365,17 @@ class _SettingsPageState extends State<SettingsPage> {
                 icon: const Icon(Icons.upload, color: Colors.blue),
                 tooltip: 'Import .mailsort backup',
                 onPressed: () => _restoreAppState(),
+              ),
+            ),
+            ListTile(
+              title: const Text('Import unit list from YAML'),
+              subtitle: const Text(
+                'Select a .yaml file containing unit data to import.',
+              ),
+              trailing: IconButton(
+                icon: const Icon(Icons.upload, color: Colors.blue),
+                tooltip: 'Import unit list from YAML',
+                onPressed: () => _importUnitList(),
               ),
             ),
             SwitchListTile(
@@ -388,6 +429,76 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  List<DropdownMenuItem<String>> _buildGroupedDropdownItems(
+    List<Unit> allUnits,
+  ) {
+    final List<DropdownMenuItem<String>> menuItems = [];
+
+    // 2. Group the units by their military branch
+    final Map<String, List<dynamic>> groupedUnits = {};
+    for (var unit in allUnits) {
+      final branch = unit.unitBranch;
+      if (!groupedUnits.containsKey(branch)) {
+        groupedUnits[branch] = [];
+      }
+      groupedUnits[branch]!.add(unit);
+    }
+
+    // 3. Build the flat list of DropdownMenuItems with headers
+    groupedUnits.forEach((branch, units) {
+      menuItems.add(
+        DropdownMenuItem<String>(
+          value: null, // Null value prevents selection
+          enabled: false, // Disables the tap action
+          child: Text(
+            branch,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+
+      // Add the selectable Units under this branch
+      for (var unit in units) {
+        menuItems.add(
+          DropdownMenuItem<String>(
+            value: unit.unitName, // The actual string saved when selected
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 16.0,
+              ), // Indents the unit under the header
+              child: Text(
+                unit.unitAbbreviation ?? unit.unitName,
+              ), // Show abbreviation if available
+            ),
+          ),
+        );
+      }
+    });
+
+    return menuItems;
+  }
+
+  void _onBranchChanged(String? newValue) {
+    if (newValue == null) return;
+
+    setState(() {
+      _selectedUnit = newValue;
+    });
+
+    Unit? unit = _unitListBox.values.cast<Unit?>().firstWhere(
+      (u) => u?.unitName == newValue,
+      orElse: () => null,
+    );
+
+    if (unit != null) {
+      _settingsBox.put(SettingsKeys.selectedUnit, unit.unitName);
+      _settingsBox.put(SettingsKeys.branch, unit.unitBranch);
+    } else {
+      _settingsBox.put(SettingsKeys.selectedUnit, '');
+      _settingsBox.put(SettingsKeys.branch, newValue);
+    }
+  }
+
   Future<File> _backupAppState() async {
     final Map<String, dynamic> fullBackup = {
       'version': 1,
@@ -396,12 +507,11 @@ class _SettingsPageState extends State<SettingsPage> {
       'boxes': {
         // Serializing lists of HiveObjects using their .toJson() methods
         'packageBox': _packageBox.values.map((p) => p.toJson()).toList(),
-        'invalidScansBox': _invalidScansBox.values
-            .map((i) => i.toJson())
-            .toList(),
+        'invalidScansBox': Map<String, dynamic>.from(_invalidScansBox.toMap()),
         'slipBox': _slipBox.values.map((s) => s.toJson()).toList(),
         'importBox': _importBox.values.map((i) => i.toJson()).toList(),
         'settingsBox': Map<String, dynamic>.from(_settingsBox.toMap()),
+        'unitListBox': _unitListBox.values.map((u) => u.toJson()).toList(),
       },
     };
     final String jsonString = const JsonEncoder.withIndent(
@@ -409,7 +519,6 @@ class _SettingsPageState extends State<SettingsPage> {
     ).convert(fullBackup);
 
     Directory docsDir = await getApplicationDocumentsDirectory();
-    // Create a dedicated subfolder for your data
     final Directory appDir = Directory('${docsDir.path}\\MailSort');
     final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
     final File backupFile = File('${appDir.path}\\backup_$timestamp.mailsort');
@@ -476,6 +585,8 @@ class _SettingsPageState extends State<SettingsPage> {
       await Hive.box<Package>(HiveBoxes.packages).clear();
       await Hive.box<ImportRecord>(HiveBoxes.imports).clear();
       await Hive.box<Slip>(HiveBoxes.slips).clear();
+      await Hive.box(HiveBoxes.invalidScans).clear();
+      //await Hive.box(HiveBoxes.unitList).clear();
 
       if (!context.mounted) return;
 
@@ -534,12 +645,19 @@ class _SettingsPageState extends State<SettingsPage> {
         boxes[HiveBoxes.settings] ?? {},
       );
       await _settingsBox.putAll(settingsMap);
-      // 4. Restore Invalid Scans
+      // 5. Restore Invalid Scans
       await _invalidScansBox.clear();
       final Map<String, dynamic> invalidScansMap = Map<String, dynamic>.from(
         boxes[HiveBoxes.invalidScans] ?? {},
       );
       await _invalidScansBox.putAll(invalidScansMap);
+
+      // 6. Restore Unit List
+      await _unitListBox.clear();
+      final List unitList = boxes[HiveBoxes.unitList] ?? [];
+      for (var item in unitList) {
+        await _unitListBox.add(Unit.fromJson(Map<String, dynamic>.from(item)));
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -554,6 +672,73 @@ class _SettingsPageState extends State<SettingsPage> {
 
       return true;
     } catch (e) {
+      debugPrint('Failed to restore backup: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _importUnitList() async {
+    try {
+      List<PlatformFile> result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['yaml'],
+        dialogTitle: 'Select Unit List YAML file',
+      );
+
+      if (result.isEmpty || result.single.path == null) return false;
+      File backupFile = File(result.single.path!);
+      final yamlString = backupFile.readAsStringSync();
+
+      // loadYaml parses the string into a structured YamlMap
+      final YamlMap doc = loadYaml(yamlString);
+
+      // 1. Restore Units
+      await _unitListBox.clear();
+
+      // 2. Convert the YamlMap to a List of Maps
+      final YamlMap branches = doc['branches'];
+
+      List unitList = branches['Army'] ?? [];
+      for (var item in unitList) {
+        Map<String, dynamic> unitMap = Map<String, dynamic>.from(item);
+        unitMap['unitBranch'] = 'Army';
+        await _unitListBox.add(Unit.fromJson(unitMap));
+      }
+      unitList = branches['Air Force'] ?? [];
+      for (var item in unitList) {
+        Map<String, dynamic> unitMap = Map<String, dynamic>.from(item);
+        unitMap['unitBranch'] = 'Air Force';
+        await _unitListBox.add(Unit.fromJson(unitMap));
+      }
+      unitList = branches['Navy'] ?? [];
+      for (var item in unitList) {
+        Map<String, dynamic> unitMap = Map<String, dynamic>.from(item);
+        unitMap['unitBranch'] = 'Navy'; // Ensure the branch is set
+        await _unitListBox.add(Unit.fromJson(unitMap));
+      }
+      unitList = branches['Marines'] ?? [];
+      for (var item in unitList) {
+        Map<String, dynamic> unitMap = Map<String, dynamic>.from(item);
+        unitMap['unitBranch'] = 'Marines'; // Ensure the branch is set
+        await _unitListBox.add(Unit.fromJson(unitMap));
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Import successful! Imported ${_unitListBox.length} units.',
+            ),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      return true;
+    } catch (e) {
+      //print("Failed to parse config: $e");
+      // Pro-tip: Catch the error and show the exact line number
+      // provided by the YAML parser to the user!
       debugPrint('Failed to restore backup: $e');
       return false;
     }

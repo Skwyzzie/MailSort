@@ -106,8 +106,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
         statusNotifier.value = status;
       },
       onFilePicked: (PlatformFile file) async {
-        final int size = await file.length();
-        final kb = size / 1024;
+        final int? size = await file.length();
+        final kb = size != null ? size / 1024 : 0;
         String sizeString = (kb > 1024)
             ? '${(kb / 1024).toStringAsFixed(2)} MB'
             : '${kb.toStringAsFixed(0)} KB';

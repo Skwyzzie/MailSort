@@ -22,6 +22,7 @@ class PackageAdapter extends TypeAdapter<Package> {
       packageType: fields[2] as String,
       timeImported: fields[3] as DateTime,
       lastUpdated: fields[6] as DateTime?,
+      unit: fields[7] as String?,
       isScanned: fields[4] as bool,
       file: fields[5] as ImportRecord?,
     );
@@ -30,7 +31,7 @@ class PackageAdapter extends TypeAdapter<Package> {
   @override
   void write(BinaryWriter writer, Package obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.trackingNum)
       ..writeByte(1)
@@ -44,7 +45,9 @@ class PackageAdapter extends TypeAdapter<Package> {
       ..writeByte(5)
       ..write(obj.file)
       ..writeByte(6)
-      ..write(obj.lastUpdated);
+      ..write(obj.lastUpdated)
+      ..writeByte(7)
+      ..write(obj.unit);
   }
 
   @override

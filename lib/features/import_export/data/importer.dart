@@ -44,8 +44,8 @@ class PdfImportService {
     if (matchedImport != null) return 0;
     onProgress(0.0, 'Opening document...');
 
-    final int size = await file.length();
-    final kb = size / 1024;
+    final int? size = await file.length();
+    final kb = size != null ? size / 1024 : 0;
     String sizeString = (kb > 1024)
         ? '${(kb / 1024).toStringAsFixed(2)} MB'
         : '${kb.toStringAsFixed(0)} KB';
@@ -279,6 +279,10 @@ class PdfImportService {
                       trackingNum: trackingNum,
                       slipNum: billNum,
                       packageType: packageType,
+                      unit: settingsBox.get(
+                        SettingsKeys.selectedUnit,
+                        defaultValue: 'ARMY GENERAL DELIVERY',
+                      ),
                       timeImported: DateTime.now(),
                       lastUpdated: DateTime.now(),
                       isScanned: false,

@@ -11,9 +11,10 @@ abstract final class HiveBoxes {
   static const String imports = 'importBox';
   static const String slips = 'slipBox';
   static const String invalidScans = 'invalidScansBox';
+  static const String unitList = 'unitListBox';
 }
 
-abstract final class SettingsKeys {
+abstract class SettingsKeys {
   static const String billNum = 'defaultBillNum';
   static const String billId = 'defaultBillId';
   static const String deliverer = 'defaultDeliverer';
@@ -21,9 +22,19 @@ abstract final class SettingsKeys {
   static const String signer = 'signerName';
   static const String branch = 'packageBranch';
   static const String darkMode = 'darkMode';
+  static const String unitExport = 'unitExport';
   static const String column = 'sortColumnIndex';
   static const String sort = 'sortAscending';
   static const int packagesPerPage = 50;
+  static const String selectedUnit = 'selectedUnit';
+  /*
+  static Future<void> init() async {
+    PackageInfo packageInfo = await PackageInfo.fromPlatform();
+    appName = packageInfo.appName;
+    appVersion = packageInfo.version;
+    buildNumber = packageInfo.buildNumber;
+  }
+  */
 }
 
 abstract final class LayoutKeys {
@@ -44,6 +55,6 @@ abstract class AppConstants {
     PackageInfo packageInfo = await PackageInfo.fromPlatform();
     appName = packageInfo.appName;
     appVersion = packageInfo.version;
-    buildNumber = packageInfo.buildNumber; 
+    buildNumber = packageInfo.buildNumber;
   }
 }

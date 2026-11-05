@@ -27,12 +27,16 @@ class Package extends HiveObject {
   @HiveField(6)
   DateTime? lastUpdated;
 
+  @HiveField(7)
+  String? unit;
+
   Package({
     required this.trackingNum,
     required this.slipNum,
     required this.packageType,
     required this.timeImported,
     this.lastUpdated,
+    this.unit,
     required this.isScanned,
     required this.file,
   });
@@ -40,6 +44,7 @@ class Package extends HiveObject {
     'trackingNum': trackingNum,
     'slipNum': slipNum,
     'branch': packageType,
+    'unit': unit,
     'bScanned': isScanned,
     'timeImported': timeImported.toString(),
     'lastUpdated': lastUpdated.toString(),
@@ -50,6 +55,7 @@ class Package extends HiveObject {
       trackingNum: json['trackingNum'] as String? ?? '',
       slipNum: json['slipNum'] ?? 0,
       packageType: json['branch'] as String? ?? 'Army',
+      unit: json['unit'] as String? ?? '',
       timeImported: json['timeImported'] != null
           ? DateTime.tryParse(json['timeImported'] as String) ?? DateTime.now()
           : DateTime.now(),

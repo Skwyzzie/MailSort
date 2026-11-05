@@ -7,6 +7,8 @@ import 'package:mail_sort/features/import_export/data/exporter.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 
+import '../../core/data/unit.dart';
+
 class ScannerPage extends StatefulWidget {
   const ScannerPage({super.key});
   @override
@@ -16,7 +18,10 @@ class ScannerPage extends StatefulWidget {
 class _ScannerPageState extends State<ScannerPage> {
   late Box<Package> _packageBox;
   late Box _settingsBox;
+  late Box<Unit> _unitListBox;
   PdfExportService export = PdfExportService();
+
+  List<DropdownMenuItem<String>> dropdownUnits = [];
 
   // 1. Add state variables for the search functionality
   String _searchQuery = '';
@@ -33,8 +38,12 @@ class _ScannerPageState extends State<ScannerPage> {
     super.initState();
     _packageBox = Hive.box<Package>(HiveBoxes.packages);
     _settingsBox = Hive.box(HiveBoxes.settings);
+    _unitListBox = Hive.box<Unit>(HiveBoxes.unitList);
     _sortColumnIndex = _settingsBox.get(SettingsKeys.column, defaultValue: 0);
     _sortAscending = _settingsBox.get(SettingsKeys.sort, defaultValue: false);
+    // 1. Extract all units from the Hive box
+    final allUnits = _unitListBox.values.cast<Unit>().toList();
+    dropdownUnits = _buildGroupedDropdownItems(allUnits);
   }
 
   @override
@@ -233,7 +242,7 @@ class _ScannerPageState extends State<ScannerPage> {
             size: ColumnSize.S,
             onSort: onSort,
           ),
-          const DataColumn2(label: Text('Branch'), size: ColumnSize.S),
+          const DataColumn2(label: Text('Branch/Unit'), size: ColumnSize.S),
         ],
         rows: items.map((package) {
           final timeStr =
@@ -250,12 +259,13 @@ class _ScannerPageState extends State<ScannerPage> {
                   onPressed: () {
                     package.isScanned = !package.isScanned;
                     package.packageType = _settingsBox.get(SettingsKeys.branch);
+                    package.unit = _settingsBox.get(SettingsKeys.selectedUnit);
                     package.lastUpdated = DateTime.now();
                     // 2. Commit the change to the Hive database
                     package.save();
                     if (_isSearching) {
                       _searchQuery = '';
-                      _searchController.clear();
+                      //_searchController.clear();
                     }
                   },
                 ),
@@ -293,19 +303,9 @@ class _ScannerPageState extends State<ScannerPage> {
               DataCell(
                 DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: package.packageType,
+                    value: package.unit ?? package.packageType,
                     isDense: true,
-                    items: <String>['Army', 'Air Force', 'Navy', 'Marines']
-                        .map<DropdownMenuItem<String>>((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(
-                              value,
-                              style: const TextStyle(fontSize: 14),
-                            ),
-                          );
-                        })
-                        .toList(),
+                    items: dropdownUnits,
                     onChanged: (String? newValue) {
                       if (newValue != null && newValue != package.packageType) {
                         // Update the database and the lastUpdated timestamp
@@ -527,6 +527,55 @@ class _ScannerPageState extends State<ScannerPage> {
         );
       },
     );
+  }
+
+  List<DropdownMenuItem<String>> _buildGroupedDropdownItems(
+    List<Unit> allUnits,
+  ) {
+    final List<DropdownMenuItem<String>> menuItems = [];
+    // 2. Group the units by their military branch
+    final Map<String, List<dynamic>> groupedUnits = {};
+    for (var unit in allUnits) {
+      final branch = unit.unitBranch;
+      if (!groupedUnits.containsKey(branch)) {
+        groupedUnits[branch] = [];
+      }
+      groupedUnits[branch]!.add(unit);
+    }
+
+    // 3. Build the flat list of DropdownMenuItems with headers
+    groupedUnits.forEach((branch, units) {
+      // Add the unselectable Branch Header
+      menuItems.add(
+        DropdownMenuItem<String>(
+          value: null, // Null value prevents selection
+          enabled: false, // Disables the tap action
+          child: Text(
+            branch,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+
+      // Add the selectable Units under this branch
+      for (var unit in units) {
+        menuItems.add(
+          DropdownMenuItem<String>(
+            value: unit.unitName, // The actual string saved when selected
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: 16.0,
+              ), // Indents the unit under the header
+              child: Text(
+                unit.unitAbbreviation ?? unit.unitName,
+              ), // Show abbreviation if available
+            ),
+          ),
+        );
+      }
+    });
+
+    return menuItems;
   }
 
   int compareNullable<T extends Comparable<T>>(T? a, T? b) {

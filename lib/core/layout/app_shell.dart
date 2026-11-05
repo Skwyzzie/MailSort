@@ -38,10 +38,7 @@ class _MailSortShellState extends State<MailSortShell> {
 
   void _onGlobalBarcodeScanned(String barcode) {
     if (!isValidTrackingNumber(barcode)) {
-      _invalidScansBox.add({
-        'scannedCode': barcode,
-        'timestamp': DateTime.now().toIso8601String(),
-      });
+      _invalidScansBox.put(barcode, DateTime.now().toIso8601String());
       _showSnackbar('Invalid tracking number scanned: $barcode');
       return;
     }
@@ -57,6 +54,10 @@ class _MailSortShellState extends State<MailSortShell> {
       SettingsKeys.branch,
       defaultValue: 'Army',
     );
+    var selectedUnit = _settingsBox.get(
+      SettingsKeys.selectedUnit,
+      defaultValue: '',
+    );
 
     final matchedPackage = _packageBox.values.cast<Package?>().firstWhere(
       (p) => p?.trackingNum == trackingNum,
@@ -68,6 +69,7 @@ class _MailSortShellState extends State<MailSortShell> {
       matchedPackage.lastUpdated = DateTime.now();
       if (matchedPackage.packageType != packageType) {
         matchedPackage.packageType = packageType;
+        matchedPackage.unit = selectedUnit;
       }
       matchedPackage.save();
       _showSnackbar('Matched & updated pending package: $trackingNum');
@@ -75,8 +77,10 @@ class _MailSortShellState extends State<MailSortShell> {
       _packageBox.add(
         Package(
           trackingNum: trackingNum,
-          slipNum: '0',
+          slipNum:
+              Hive.box(HiveBoxes.settings).get(SettingsKeys.billNum) ?? '0',
           packageType: packageType,
+          unit: selectedUnit,
           timeImported: DateTime.now(),
           lastUpdated: DateTime.now(),
           isScanned: true,

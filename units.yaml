@@ -8,7 +8,6 @@
 #      The mail clerk is the person who is responsible for receiving and distributing mail for that unit. If you don't know the mail clerk, leave it blank.
 #   5. The unitName is the full name of the unit. The unitAbbreviation is the abbreviation of the unit. The unitMailClerk is the name of the mail clerk for that unit.
 #   6. EVERY BRANCH MUST HAVE A GENERAL DELIVERY UNIT. DO NOT REMOVE THESE.
-# If you have questions and cannot find the answer in this comment, please reach out to me either on Signal (612-618-0313) or email me at kerry.hackert@gmail.com for help
 
 version: 1
 branches:
@@ -20,11 +19,11 @@ branches:
   Army:
     - unitName: "ARMY GENERAL DELIVERY" 
       unitAbbreviation: "AR GD"
-      unitMailClerk: "YIN, SHAWN"
+      unitMailClerk: "UNASSIGNED"
   Air Force:
     - unitName: "AIR FORCE GENERAL DELIVERY" 
       unitAbbreviation: "AF GD"
-      unitMailClerk: "RUTH CARO, SAMANTHA"
+      unitMailClerk: "UNASSIGNED"
   Navy:
     - unitName: "NAVY GENERAL DELIVERY" 
       unitAbbreviation: "NV GD"
